@@ -1,9 +1,11 @@
 use bibe_instr::{
-	Kind,
-	Instruction,
 	Condition,
+	Instruction,
+	Kind,
+	Register,
 	RegOp,
 	rdrsrs,
+	rdrsi,
 };
 
 use num_traits::ToPrimitive;
@@ -14,7 +16,7 @@ pub struct State {
 	psr: u32,
 }
 
-const PC: usize = 31;
+const PC: usize = 30;
 
 impl State {
 	pub fn new() -> State {
@@ -24,21 +26,44 @@ impl State {
 		}
 	}
 
-	pub fn execute(&mut self, instrs: &[Instruction]) {
-		for instr in instrs {
-			self.execute_one(instr)
+	fn read_reg(&self, r: Register) -> u32 {
+		if r == Register::R0 {
+			0
+		} else {
+			self.r[ToPrimitive::to_usize(&r).unwrap() - 1]
+		}
+	}
+
+	fn write_reg(&mut self, r: Register, value: u32){
+		if r != Register::R0 {
+			self.r[ToPrimitive::to_usize(&r).unwrap() - 1] = value;
 		}
 	}
 
 	fn execute_rdrscs(&mut self, instr: &rdrsrs::Instruction) {
-		let dest = ToPrimitive::to_usize(&instr.dest).unwrap();
-		let src1 = ToPrimitive::to_usize(&instr.src1).unwrap();
-		let src2 = ToPrimitive::to_usize(&instr.src2).unwrap();
+		let src1 = self.read_reg(instr.src1);
+		let src2 = self.read_reg(instr.src2);
 
-		match instr.op {
-			RegOp::Add => self.r[dest] = self.r[src1] + self.r[src2],
+		let res = match instr.op {
+			RegOp::Add => src1 + src2,
 			_ => panic!("Unsupported reg op"),
 		};
+		self.write_reg(instr.dest, res);
+	}
+
+	fn execute_rdrsi(&mut self, instr: &rdrsi::Instruction) {
+		let src = self.read_reg(instr.src);
+		let imm = instr.imm;
+
+		let res = match instr.op {
+			RegOp::Add => src + imm,
+			_ => panic!("Unsupported reg op"),
+		};
+		self.write_reg(instr.dest, res);
+	}
+
+	fn check_condition(&self, cond: Condition) -> bool {
+		cond == Condition::Always
 	}
 
 	fn execute_one(&mut self, instr: &Instruction) {
@@ -49,13 +74,16 @@ impl State {
 
 		match instr {
 			Instruction::RdRsRs(_, instr) => self.execute_rdrscs(instr),
+			Instruction::RdRsI(_, instr) => self.execute_rdrsi(instr),
 			_ => panic!("Unsupported instruction kind"),
 		};
 
 		self.r[PC] +=1;
 	}
 
-	fn check_condition(&self, cond: Condition) -> bool {
-		cond == Condition::Always
+	pub fn execute(&mut self, instrs: &[Instruction]) {
+		for instr in instrs {
+			self.execute_one(instr)
+		}
 	}
 }
