@@ -6,11 +6,9 @@ use bibe_instr::{
 	},
 };
 
-use crate::{
-	state::{
-		execute_binop,
-		State,
-	},
+use crate::state::{
+	execute_binop,
+	State,
 };
 
 fn shift(s: &Shift, value: u32) -> u32 {

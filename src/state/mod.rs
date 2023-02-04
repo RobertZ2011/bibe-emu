@@ -4,12 +4,30 @@ use bibe_instr::{
 	Register,
 };
 
+use num_derive::{ FromPrimitive, ToPrimitive };
+use num_traits::{ FromPrimitive, ToPrimitive };
+
 mod rrr;
 mod rri;
 
+#[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
+pub(crate) enum CmpResult {
+	Eq,
+	Lt,
+	Gt,
+	False,
+}
+
+impl CmpResult {
+	pub fn from_psr(psr: u32) -> CmpResult {
+		Self::from_u32(psr & 0x3).unwrap()
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct State {
-	regs: [u32; 31]
+	regs: [u32; 31],
+	psr: u32,
 }
 
 // 30 because we don't reserved space for r0
@@ -35,13 +53,21 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> u32 {
 
 		BinOp::Not => !(lhs + rhs),
 		BinOp::Neg => -((lhs + rhs) as i32) as u32,
+		BinOp::Cmp => if lhs == rhs {
+			CmpResult::Eq
+		} else if lhs < rhs {
+			CmpResult::Lt
+		} else {
+			CmpResult::Gt
+		}.to_u32().unwrap(),
 	}
 }
 
 impl State {
 	pub fn new() -> State {
 		State {
-			regs: [0u32; 31]
+			regs: [0u32; 31],
+			psr: 0,
 		}
 	}
 
@@ -59,6 +85,14 @@ impl State {
 		}
 	}
 
+	pub fn read_psr(&self) -> u32 {
+		self.psr
+	}
+
+	pub fn write_psr(&mut self, value: u32) {
+		self.psr = value;
+	} 
+
 	pub fn pc(&self) -> u32 {
 		self.regs[PC]
 	}
@@ -68,13 +102,18 @@ impl State {
 	}
 
 	fn execute_one(&mut self, instr: &Instruction) {
+		let pc_prev = self.pc();
+
 		match instr {
 			Instruction::Rrr(i) => rrr::execute(self, i),
 			Instruction::Rri(i) => rri::execute(self, i),
 			_ => panic!("Unsupported instruction type")
 		}
 
-		*self.pc_mut() += 4;
+		// If pc wasn't updated by a jump, advance to next instruction
+		if pc_prev == self.pc() {
+			*self.pc_mut() += 4;
+		}
 	}
 
 	pub fn execute(&mut self, instrs: &[Instruction]) {
