@@ -28,7 +28,7 @@ fn shift(s: &Shift, value: u32) -> u32 {
 }
 
 pub fn execute(s: &mut State, instr: &Instruction) {
-	let rs = s.read_reg(instr.src1);
-	let rq = shift(&instr.shift, s.read_reg(instr.src2));
+	let rs = s.read_reg(instr.lhs);
+	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
 	s.write_reg(instr.dest, execute_binop(instr.op, rs, rq));
 }

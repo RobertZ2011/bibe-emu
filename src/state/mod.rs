@@ -39,6 +39,7 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> u32 {
 		BinOp::Sub => lhs - rhs,
 		BinOp::Mul => lhs * rhs,
 		BinOp::Div => lhs / rhs,
+		BinOp::Mod => lhs % rhs,
 
 		BinOp::And => lhs & rhs,
 		BinOp::Or => lhs | rhs,
