@@ -1,9 +1,11 @@
 use bibe_instr::{
 	BinOp,
+	Encode,
 	Instruction,
 	Register,
 };
 
+use log::debug;
 use num_derive::{ FromPrimitive, ToPrimitive };
 use num_traits::{ FromPrimitive, ToPrimitive };
 
@@ -103,6 +105,7 @@ impl State {
 	}
 
 	fn execute_one(&mut self, instr: &Instruction) {
+		debug!("Executing {:08x} {:?}", instr.encode(), instr);
 		let pc_prev = self.pc();
 
 		match instr {

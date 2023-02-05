@@ -9,3 +9,4 @@ edition = "2021"
 bibe-instr = { path = "../bibe-instr" }
 num-traits = "0.2"
 num-derive = "0.3"
+log = "0.4.17"
