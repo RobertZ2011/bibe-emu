@@ -6,40 +6,43 @@ use bibe_instr::{
 	},
 };
 
-use crate::state::{
-	CmpResult,
-	execute_binop,
-	State,
+use crate::{
+	Result,
+	state::{
+		CmpResult,
+		execute_binop,
+		State,
+	}
 };
 
-pub fn execute(s: &mut State, instr: &Instruction) {
+pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	let cmp = CmpResult::from_psr(s.read_psr());
 	if cmp == CmpResult::False {
 		// Never execute in this case
-		return;
+		return Ok(());
 	}
 	
 	match instr.cond {
 		Condition::Al => (),
 		Condition::Eq => if cmp != CmpResult::Eq {
-			return;
+			return Ok(());
 		},
 		Condition::Ne => if cmp == CmpResult::Eq {
-			return;
+			return Ok(());
 		},
 		Condition::Gt => if cmp != CmpResult::Gt {
-			return;
+			return Ok(());
 		},
 		Condition::Ge => if cmp != CmpResult::Gt && cmp != CmpResult::Eq {
-			return;
+			return Ok(());
 		},
 		Condition::Lt => if cmp != CmpResult::Lt {
-			return;
+			return Ok(());
 		},
 		Condition::Le => if cmp != CmpResult::Lt && cmp != CmpResult::Eq {
-			return;
+			return Ok(());
 		},
-		Condition::Nv => return,
+		Condition::Nv => return Ok(()),
 	};
 
 	let src = s.read_reg(instr.src);
@@ -54,4 +57,6 @@ pub fn execute(s: &mut State, instr: &Instruction) {
 		s.write_psr(psr);
 	}
 	s.write_reg(instr.dest, res);
+
+	Ok(())
 }

@@ -1,14 +1,18 @@
 use bibe_instr::{
 	BinOp,
 	Encode,
+	memory::Width,
 	Instruction,
 	Register,
 };
+
+use crate::memory::Memory;
 
 use log::debug;
 use num_derive::{ FromPrimitive, ToPrimitive };
 use num_traits::{ FromPrimitive, ToPrimitive };
 
+mod memory;
 mod rrr;
 mod rri;
 
@@ -26,10 +30,11 @@ impl CmpResult {
 	}
 }
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct State {
 	regs: [u32; 31],
 	psr: u32,
+	memory: Box<dyn Memory>,
 }
 
 // 30 because we don't reserved space for r0
@@ -67,10 +72,11 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> u32 {
 }
 
 impl State {
-	pub fn new() -> State {
+	pub fn new(memory: Box<dyn Memory>) -> State {
 		State {
 			regs: [0u32; 31],
 			psr: 0,
+			memory: memory,
 		}
 	}
 
@@ -104,6 +110,14 @@ impl State {
 		&mut self.regs[PC]
 	}
 
+	pub fn mem<'a>(&'a self) -> &'a dyn Memory {
+		self.memory.as_ref()
+	}
+
+	pub fn mem_mut<'a>(&'a mut self) -> &'a mut dyn Memory {
+		self.memory.as_mut()
+	}
+
 	fn execute_one(&mut self, instr: &Instruction) {
 		debug!("Executing {:08x} {:?}", instr.encode(), instr);
 		let pc_prev = self.pc();
@@ -111,8 +125,9 @@ impl State {
 		match instr {
 			Instruction::Rrr(i) => rrr::execute(self, i),
 			Instruction::Rri(i) => rri::execute(self, i),
+			Instruction::Memory(i) => memory::execute(self, i),
 			_ => panic!("Unsupported instruction type")
-		}
+		}.expect("Exception during execution");
 
 		// If pc wasn't updated by a jump, advance to next instruction
 		if pc_prev == self.pc() {
@@ -120,9 +135,17 @@ impl State {
 		}
 	}
 
-	pub fn execute(&mut self, instrs: &[Instruction]) {
+	pub fn execute_instructions(&mut self, instrs: &[Instruction]) {
 		for instr in instrs {
 			self.execute_one(instr)
 		}
+	}
+
+	pub fn execute(&mut self) {
+		let value = self.mem().read(self.pc(), Width::Word).expect("Failed to fetch instruction");
+		debug!("Fetching instruction at {:08x}", self.pc());
+		let instruction = Instruction::decode(value).expect("Failed to decode instruction");
+
+		self.execute_one(&instruction);
 	}
  }

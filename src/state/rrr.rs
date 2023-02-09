@@ -6,9 +6,12 @@ use bibe_instr::{
 	},
 };
 
-use crate::state::{
-	execute_binop,
-	State,
+use crate::{
+	Result,
+	state::{
+		execute_binop,
+		State,
+	},
 };
 
 fn shift(s: &Shift, value: u32) -> u32 {
@@ -27,8 +30,9 @@ fn shift(s: &Shift, value: u32) -> u32 {
 	}
 }
 
-pub fn execute(s: &mut State, instr: &Instruction) {
+pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	let rs = s.read_reg(instr.lhs);
 	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
 	s.write_reg(instr.dest, execute_binop(instr.op, rs, rq));
+	Ok(())
 }
