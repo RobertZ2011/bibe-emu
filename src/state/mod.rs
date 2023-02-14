@@ -1,9 +1,11 @@
+use std::fmt;
+
 use bibe_instr::{
 	BinOp,
 	Encode,
-	memory::Width,
 	Instruction,
 	Register,
+	Width,
 };
 
 use crate::memory::Memory;
@@ -18,10 +20,10 @@ mod rri;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub(crate) enum CmpResult {
-	Eq,
+	None,
 	Lt,
 	Gt,
-	False,
+	Eq,
 }
 
 impl CmpResult {
@@ -30,7 +32,6 @@ impl CmpResult {
 	}
 }
 
-#[derive(Debug)]
 pub struct State {
 	regs: [u32; 31],
 	psr: u32,
@@ -41,12 +42,12 @@ pub struct State {
 const PC: usize = 30;
 
 pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> u32 {
-		match op {
-		BinOp::Add => lhs + rhs,
-		BinOp::Sub => lhs - rhs,
-		BinOp::Mul => lhs * rhs,
-		BinOp::Div => lhs / rhs,
-		BinOp::Mod => lhs % rhs,
+	match op {
+		BinOp::Add => lhs.wrapping_add(rhs),
+		BinOp::Sub => lhs.wrapping_sub(rhs),
+		BinOp::Mul => lhs.wrapping_mul(rhs),
+		BinOp::Div => lhs.wrapping_div(lhs / rhs),
+		BinOp::Mod => lhs.wrapping_rem(rhs),
 
 		BinOp::And => lhs & rhs,
 		BinOp::Or => lhs | rhs,
@@ -133,6 +134,8 @@ impl State {
 		if pc_prev == self.pc() {
 			*self.pc_mut() += 4;
 		}
+
+		debug!("{}", self);
 	}
 
 	pub fn execute_instructions(&mut self, instrs: &[Instruction]) {
@@ -149,3 +152,14 @@ impl State {
 		self.execute_one(&instruction);
 	}
  }
+
+impl fmt::Display for State {
+	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		formatter.write_str("Core State\n");
+		for i in 0..32 {
+			write!(formatter, "\tr{}: 0x{:08x}\n", i,self.read_reg(Register::new(i).unwrap())).unwrap();
+		}
+		write!(formatter, "\tpsr: 0x{:08x}\n", self.psr).unwrap();
+		Ok(())
+	}
+}

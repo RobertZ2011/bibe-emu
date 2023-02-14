@@ -17,11 +17,7 @@ use crate::{
 
 pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	let cmp = CmpResult::from_psr(s.read_psr());
-	if cmp == CmpResult::False {
-		// Never execute in this case
-		return Ok(());
-	}
-	
+
 	match instr.cond {
 		Condition::Al => (),
 		Condition::Eq => if cmp != CmpResult::Eq {
@@ -52,7 +48,7 @@ pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	// The cmp instruction touches psr
 	if instr.op == BinOp::Cmp {
 		let mut psr = s.read_psr();
-		psr &= 0x3;
+		psr &= !0x3;
 		psr |= res;
 		s.write_psr(psr);
 	}

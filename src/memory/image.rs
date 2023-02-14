@@ -1,4 +1,6 @@
-use bibe_instr::memory::Width;
+use bibe_instr::Width;
+
+use log::debug;
 
 use crate::{
 	Exception,
@@ -25,6 +27,7 @@ impl Image {
 
 	fn validate_addr(&self, addr: u32, width: Width) -> Result<()> {
 		if addr as usize > self.mem.len() {
+			debug!("Attempt to access invalid address 0x{:08x}", addr);
 			return Err(Exception::MemFault);
 		}
 
@@ -35,6 +38,7 @@ impl Image {
 		};
 
 		if !aligned {
+			debug!("Attempt to perform unaligned access with {:?} at 0x{:08x}", width, addr);
 			return Err(Exception::UnalignedAccess);
 		}
 

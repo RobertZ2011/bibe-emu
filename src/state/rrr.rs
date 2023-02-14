@@ -1,4 +1,5 @@
 use bibe_instr::{
+	BinOp,
 	rrr::{
 		Instruction,
 		Shift,
@@ -33,6 +34,15 @@ fn shift(s: &Shift, value: u32) -> u32 {
 pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	let rs = s.read_reg(instr.lhs);
 	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
-	s.write_reg(instr.dest, execute_binop(instr.op, rs, rq));
+	let res = execute_binop(instr.op, rs, rq);
+
+	// The cmp instruction touches psr
+	if instr.op == BinOp::Cmp {
+		let mut psr = s.read_psr();
+		psr &= !0x3;
+		psr |= res;
+		s.write_psr(psr);
+	}
+	s.write_reg(instr.dest, res);
 	Ok(())
 }
