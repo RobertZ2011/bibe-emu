@@ -155,7 +155,7 @@ impl State {
 
 impl fmt::Display for State {
 	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-		formatter.write_str("Core State\n");
+		formatter.write_str("Core State\n")?;
 		for i in 0..32 {
 			write!(formatter, "\tr{}: 0x{:08x}\n", i,self.read_reg(Register::new(i).unwrap())).unwrap();
 		}

@@ -5,15 +5,11 @@ use bibe_instr::{
 		ri,
 		Instruction,
 		OpType,
-	},
-	Width
+	}
 };
 
 use crate::{
-	state::{
-		Memory,
-		State,
-	},
+	state::State,
 	Result
 };
 
