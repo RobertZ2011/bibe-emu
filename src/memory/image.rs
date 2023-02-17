@@ -1,7 +1,4 @@
-<<<<<<< HEAD
-=======
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
->>>>>>> 7d9b226 (Added license)
 use bibe_instr::Width;
 
 use log::debug;
