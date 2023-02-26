@@ -16,8 +16,11 @@ use num_derive::{ FromPrimitive, ToPrimitive };
 use num_traits::ToPrimitive;
 
 mod memory;
+mod model;
 mod rrr;
 mod rri;
+
+use model::Msr;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub(crate) enum CmpResult {
@@ -37,8 +40,15 @@ bitfield! {
 
 pub struct State {
 	regs: [u32; 31],
-	psr: Psr,
 	memory: Box<dyn Memory>,
+
+	psr: Psr,
+	isr_base: u32,
+	isr_sp: u32,
+	isr_old_sp: u32,
+	isr_old_ip: u32,
+	isr_err1: u32,
+	isr_err2: u32
 }
 
 // 30 because we don't reserved space for r0
@@ -79,8 +89,15 @@ impl State {
 	pub fn new(memory: Box<dyn Memory>) -> State {
 		State {
 			regs: [0u32; 31],
-			psr: Psr(0),
 			memory: memory,
+
+			psr: Psr(0),
+			isr_base: 0,
+			isr_sp: 0,
+			isr_old_sp: 0,
+			isr_old_ip: 0,
+			isr_err1: 0,
+			isr_err2: 0,
 		}
 	}
 
@@ -104,7 +121,54 @@ impl State {
 
 	pub fn write_psr(&mut self, value: Psr) {
 		self.psr = value;
-	} 
+	}
+
+	pub fn read_msr(&self, reg: Msr) -> Option<u32> {
+		match reg {
+			Msr::Psr => Some(self.read_psr().0),
+			Msr::IsrBase => Some(self.isr_base),
+			Msr::IsrSp => Some(self.isr_sp),
+			Msr::IsrOldSp => Some(self.isr_old_sp),
+			Msr::IsrOldIp => Some(self.isr_old_ip),
+			Msr::IsrErr1 => Some(self.isr_err1),
+			Msr::IsrErr2 => Some(self.isr_err2),
+			_ => None,
+		}
+	}
+
+	pub fn write_msr(&mut self, reg: Msr, value: u32) -> Option<()> {
+		match reg {
+			Msr::Psr => {
+				self.write_psr(Psr(value));
+				Some(())
+			},
+			Msr::IsrBase => {
+				self.isr_base = value;
+				Some(())
+			},
+			Msr::IsrSp => {
+				self.isr_sp = value;
+				Some(())
+			},
+			Msr::IsrOldSp => {
+				self.isr_old_sp = value;
+				Some(())
+			},
+			Msr::IsrOldIp => {
+				self.isr_old_ip = value;
+				Some(())
+			},
+			Msr::IsrErr1 => {
+				self.isr_err1 = value;
+				Some(())
+			},
+			Msr::IsrErr2 => {
+				self.isr_err2 = value;
+				Some(())
+			},
+			_ => None,
+		}
+	}
 
 	pub fn pc(&self) -> u32 {
 		self.regs[PC]
@@ -130,6 +194,7 @@ impl State {
 			Instruction::Rrr(i) => rrr::execute(self, i),
 			Instruction::Rri(i) => rri::execute(self, i),
 			Instruction::Memory(i) => memory::execute(self, i),
+			Instruction::Model(i) => model::execute(self, i),
 			_ => panic!("Unsupported instruction type")
 		}.expect("Exception during execution");
 
