@@ -15,8 +15,10 @@ use crate::{
 	}
 };
 
+use num_traits::FromPrimitive;
+
 pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
-	let cmp = CmpResult::from_psr(s.read_psr());
+	let cmp = CmpResult::from_u32(s.read_psr().cmp_res()).unwrap();
 
 	match instr.cond {
 		Condition::Al => (),
@@ -48,8 +50,7 @@ pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	// The cmp instruction touches psr
 	if instr.op == BinOp::Cmp {
 		let mut psr = s.read_psr();
-		psr &= !0x3;
-		psr |= res;
+		psr.set_cmp_res(res);
 		s.write_psr(psr);
 	}
 	s.write_reg(instr.dest, res);

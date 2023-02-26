@@ -39,8 +39,7 @@ pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	// The cmp instruction touches psr
 	if instr.op == BinOp::Cmp {
 		let mut psr = s.read_psr();
-		psr &= !0x3;
-		psr |= res;
+		psr.set_cmp_res(res);
 		s.write_psr(psr);
 	}
 	s.write_reg(instr.dest, res);

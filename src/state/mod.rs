@@ -10,9 +10,10 @@ use bibe_instr::{
 
 use crate::memory::Memory;
 
+use bitfield::bitfield;
 use log::debug;
 use num_derive::{ FromPrimitive, ToPrimitive };
-use num_traits::{ FromPrimitive, ToPrimitive };
+use num_traits::ToPrimitive;
 
 mod memory;
 mod rrr;
@@ -26,15 +27,17 @@ pub(crate) enum CmpResult {
 	Eq,
 }
 
-impl CmpResult {
-	pub fn from_psr(psr: u32) -> CmpResult {
-		Self::from_u32(psr & 0x3).unwrap()
-	}
+bitfield! {
+	pub struct Psr(u32);
+	impl Debug;
+	pub cmp_res, set_cmp_res : 1, 0;
+	pub msr_quiet, set_msr_quet : 2, 2;
+	pub msr_err, set_msr_err : 3, 3;
 }
 
 pub struct State {
 	regs: [u32; 31],
-	psr: u32,
+	psr: Psr,
 	memory: Box<dyn Memory>,
 }
 
@@ -76,7 +79,7 @@ impl State {
 	pub fn new(memory: Box<dyn Memory>) -> State {
 		State {
 			regs: [0u32; 31],
-			psr: 0,
+			psr: Psr(0),
 			memory: memory,
 		}
 	}
@@ -95,11 +98,11 @@ impl State {
 		}
 	}
 
-	pub fn read_psr(&self) -> u32 {
-		self.psr
+	pub fn read_psr(&self) -> Psr {
+		Psr(self.psr.0)
 	}
 
-	pub fn write_psr(&mut self, value: u32) {
+	pub fn write_psr(&mut self, value: Psr) {
 		self.psr = value;
 	} 
 
@@ -159,7 +162,7 @@ impl fmt::Display for State {
 		for i in 0..32 {
 			write!(formatter, "\tr{}: 0x{:08x}\n", i,self.read_reg(Register::new(i).unwrap())).unwrap();
 		}
-		write!(formatter, "\tpsr: 0x{:08x}\n", self.psr).unwrap();
+		write!(formatter, "\tpsr: 0x{:08x}\n", self.psr.0).unwrap();
 		Ok(())
 	}
 }
