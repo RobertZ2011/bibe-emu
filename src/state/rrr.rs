@@ -34,7 +34,7 @@ fn shift(s: &Shift, value: u32) -> u32 {
 pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 	let rs = s.read_reg(instr.lhs);
 	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
-	let res = execute_binop(instr.op, rs, rq);
+	let res = execute_binop(instr.op, rs, rq)?;
 
 	// The cmp instruction touches psr
 	if instr.op == BinOp::Cmp {

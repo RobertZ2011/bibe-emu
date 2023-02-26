@@ -8,7 +8,12 @@ use bibe_instr::{
 	Width,
 };
 
-use crate::memory::Memory;
+use crate::{
+	memory::Memory, 
+	Exception, 
+	ExceptionKind,
+	Result
+};
 
 use bitfield::bitfield;
 use log::debug;
@@ -36,17 +41,20 @@ bitfield! {
 	pub cmp_res, set_cmp_res : 1, 0;
 	pub msr_quiet, set_msr_quet : 2, 2;
 	pub msr_err, set_msr_err : 3, 3;
+	pub exception_mode, set_exception_mode : 4, 4;
+	pub exception_enabled, set_exception_enabled : 5, 5;
 }
 
 pub struct State {
 	regs: [u32; 31],
 	memory: Box<dyn Memory>,
+	pc_changed: bool,
 
 	psr: Psr,
 	isr_base: u32,
 	isr_sp: u32,
 	isr_old_sp: u32,
-	isr_old_ip: u32,
+	isr_old_pc: u32,
 	isr_err1: u32,
 	isr_err2: u32
 }
@@ -54,34 +62,40 @@ pub struct State {
 // 30 because we don't reserved space for r0
 const PC: usize = 30;
 
-pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> u32 {
+pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> Result<u32> {
 	match op {
-		BinOp::Add => lhs.wrapping_add(rhs),
-		BinOp::Sub => lhs.wrapping_sub(rhs),
-		BinOp::Mul => lhs.wrapping_mul(rhs),
-		BinOp::Div => lhs.wrapping_div(lhs / rhs),
-		BinOp::Mod => lhs.wrapping_rem(rhs),
+		BinOp::Add => Ok(lhs.wrapping_add(rhs)),
+		BinOp::Sub => Ok(lhs.wrapping_sub(rhs)),
+		BinOp::Mul => Ok(lhs.wrapping_mul(rhs)),
+		BinOp::Div => if rhs == 0 {
+			Err(Exception::div_zero())
+		}
+		else {
+			Ok(lhs.wrapping_div(lhs / rhs))
+		},
+			
+		BinOp::Mod => Ok(lhs.wrapping_rem(rhs)),
 
-		BinOp::And => lhs & rhs,
-		BinOp::Or => lhs | rhs,
-		BinOp::Xor => lhs ^ rhs,
+		BinOp::And => Ok(lhs & rhs),
+		BinOp::Or => Ok(lhs | rhs),
+		BinOp::Xor => Ok(lhs ^ rhs),
 
-		BinOp::Shl => lhs << rhs,
-		BinOp::Shr => lhs >> rhs,
-		BinOp::Asl => ((lhs as i32) >> rhs) as u32,
-		BinOp::Asr => ((lhs as i32) << rhs) as u32,
-		BinOp::Rol => lhs.rotate_left(rhs),
-		BinOp::Ror => lhs.rotate_right(rhs),
+		BinOp::Shl => Ok(lhs << rhs),
+		BinOp::Shr => Ok(lhs >> rhs),
+		BinOp::Asl => Ok(((lhs as i32) >> rhs) as u32),
+		BinOp::Asr => Ok(((lhs as i32) << rhs) as u32),
+		BinOp::Rol => Ok(lhs.rotate_left(rhs)),
+		BinOp::Ror => Ok(lhs.rotate_right(rhs)),
 
-		BinOp::Not => !(lhs + rhs),
-		BinOp::Neg => -((lhs + rhs) as i32) as u32,
-		BinOp::Cmp => if lhs == rhs {
+		BinOp::Not => Ok(!(lhs + rhs)),
+		BinOp::Neg => Ok(-((lhs + rhs) as i32) as u32),
+		BinOp::Cmp => Ok(if lhs == rhs {
 			CmpResult::Eq
 		} else if lhs < rhs {
 			CmpResult::Lt
 		} else {
 			CmpResult::Gt
-		}.to_u32().unwrap(),
+		}.to_u32().unwrap()),
 	}
 }
 
@@ -90,12 +104,13 @@ impl State {
 		State {
 			regs: [0u32; 31],
 			memory: memory,
+			pc_changed: false,
 
 			psr: Psr(0),
 			isr_base: 0,
 			isr_sp: 0,
 			isr_old_sp: 0,
-			isr_old_ip: 0,
+			isr_old_pc: 0,
 			isr_err1: 0,
 			isr_err2: 0,
 		}
@@ -110,6 +125,10 @@ impl State {
 	}
 
 	pub fn write_reg(&mut self, r: Register, value: u32) {
+		if r.as_u8() == PC as u8 {
+			self.pc_changed = true;
+		}
+
 		if r.as_u8() != 0 {
 			self.regs[r.as_u8() as usize - 1] = value
 		}
@@ -129,7 +148,7 @@ impl State {
 			Msr::IsrBase => Some(self.isr_base),
 			Msr::IsrSp => Some(self.isr_sp),
 			Msr::IsrOldSp => Some(self.isr_old_sp),
-			Msr::IsrOldIp => Some(self.isr_old_ip),
+			Msr::IsrOldPc => Some(self.isr_old_pc),
 			Msr::IsrErr1 => Some(self.isr_err1),
 			Msr::IsrErr2 => Some(self.isr_err2),
 			_ => None,
@@ -154,8 +173,8 @@ impl State {
 				self.isr_old_sp = value;
 				Some(())
 			},
-			Msr::IsrOldIp => {
-				self.isr_old_ip = value;
+			Msr::IsrOldPc => {
+				self.isr_old_pc = value;
 				Some(())
 			},
 			Msr::IsrErr1 => {
@@ -170,12 +189,20 @@ impl State {
 		}
 	}
 
-	pub fn pc(&self) -> u32 {
-		self.regs[PC]
+	pub fn read_pc(&self) -> u32 {
+		self.read_reg(Register::pc())
 	}
 
-	pub fn pc_mut(&mut self) -> &mut u32 {
-		&mut self.regs[PC]
+	pub fn write_pc(&mut self, value: u32) {
+		self.write_reg(Register::pc(), value)
+	}
+
+	pub fn read_sp(&self) -> u32 {
+		self.read_reg(Register::sp())
+	}
+
+	pub fn write_sp(&mut self, value: u32) {
+		self.write_reg(Register::sp(), value)
 	}
 
 	pub fn mem<'a>(&'a self) -> &'a dyn Memory {
@@ -186,21 +213,81 @@ impl State {
 		self.memory.as_mut()
 	}
 
+	pub fn reset(&mut self) {
+		debug!("Reset");
+		for reg in &mut self.regs {
+			*reg = 0;
+		}
+
+		self.psr = Psr(0);
+		self.isr_base = 0;
+		self.isr_err1 = 0;
+		self.isr_err2 = 0;
+		self.isr_old_pc = 0;
+		self.isr_old_sp = 0;
+		self.isr_sp = 0;
+	}
+
+	fn handle_exception(&mut self, e: &Exception) {
+		if self.psr.exception_mode() == 1 {
+			if e.kind == ExceptionKind::IsrExit {
+				self.write_reg(Register::sp(), self.read_msr(Msr::IsrOldSp).unwrap());
+				self.write_reg(Register::pc(), self.read_msr(Msr::IsrOldPc).unwrap());
+				self.write_msr(Msr::IsrOldSp, 0);
+				self.write_msr(Msr::IsrOldPc, 0);
+				self.write_msr(Msr::IsrErr1, 0);
+				self.write_msr(Msr::IsrErr2, 0);
+
+				self.psr.set_exception_enabled(1);
+				self.psr.set_exception_mode(0);
+
+				debug!("ISR exit sp: {:08x}, pc: {:08x}", self.read_sp(), self.read_pc());
+			} else {
+				// Exception while handling an exception
+				debug!("Exception {:?} while already handling exception", e);
+				self.reset();
+			}
+		}
+		else {
+			let old_sp = self.read_sp();
+			let old_pc = self.read_pc();
+
+			self.psr.set_exception_enabled(0);
+			self.psr.set_exception_mode(1);
+			self.write_msr(Msr::IsrOldSp, old_sp);
+			self.write_msr(Msr::IsrOldPc, old_pc);
+			self.write_sp(self.read_msr(Msr::IsrSp).unwrap());
+			self.write_msr(Msr::IsrErr1, e.err1);
+			self.write_msr(Msr::IsrErr1, e.err2);
+
+			let index: u32 = e.kind.to_u32().unwrap();
+			let handler = self.read_msr(Msr::IsrBase).unwrap() + 4 * index;
+			self.write_reg(Register::pc(), handler);
+
+			debug!("Handling exception {:?} old_sp: {:08x}, old_pc: {:08x} sp: {:08x}, pc: {:08x}", e, old_sp, old_pc, self.read_sp(), self.read_pc());
+		}
+	}
+
 	fn execute_one(&mut self, instr: &Instruction) {
 		debug!("Executing {:08x} {:?}", instr.encode(), instr);
-		let pc_prev = self.pc();
+		self.pc_changed = false;
 
-		match instr {
+		let res = match instr {
 			Instruction::Rrr(i) => rrr::execute(self, i),
 			Instruction::Rri(i) => rri::execute(self, i),
 			Instruction::Memory(i) => memory::execute(self, i),
 			Instruction::Model(i) => model::execute(self, i),
 			_ => panic!("Unsupported instruction type")
-		}.expect("Exception during execution");
+		};
+
+		if let Err(e) = res {
+			self.handle_exception(&e);
+			return;
+		}
 
 		// If pc wasn't updated by a jump, advance to next instruction
-		if pc_prev == self.pc() {
-			*self.pc_mut() += 4;
+		if !self.pc_changed {
+			self.write_pc(self.read_pc() + 4);
 		}
 
 		debug!("{}", self);
@@ -213,10 +300,21 @@ impl State {
 	}
 
 	pub fn execute(&mut self) {
-		let value = self.mem().read(self.pc(), Width::Word).expect("Failed to fetch instruction");
-		debug!("Fetching instruction at {:08x}", self.pc());
-		let instruction = Instruction::decode(value).expect("Failed to decode instruction");
+		let res = self.mem().read(self.read_pc(), Width::Word);
+		if let Err(e) = res {
+			self.handle_exception(&e);
+			return;
+		}
+		let value = res.unwrap();
+		debug!("Fetching instruction at {:08x}", self.read_pc());
 
+		let instruction = Instruction::decode(value);
+		if instruction.is_none() {
+			self.handle_exception(&Exception::opcode());
+			return;
+		}
+
+		let instruction = instruction.unwrap();
 		self.execute_one(&instruction);
 	}
  }

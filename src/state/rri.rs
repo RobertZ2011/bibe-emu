@@ -45,7 +45,7 @@ pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
 
 	let src = s.read_reg(instr.src);
 	let imm = (instr.imm as i32) as u32;
-	let res = execute_binop(instr.op, src, imm);
+	let res = execute_binop(instr.op, src, imm)?;
 
 	// The cmp instruction touches psr
 	if instr.op == BinOp::Cmp {

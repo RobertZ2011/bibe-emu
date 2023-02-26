@@ -14,7 +14,7 @@ pub enum Msr {
 	IsrBase,
 	IsrSp,
 	IsrOldSp,
-	IsrOldIp,
+	IsrOldPc,
 	IsrErr1,
 	IsrErr2,
 	IsrSwi,
