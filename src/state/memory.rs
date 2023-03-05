@@ -9,7 +9,10 @@ use bibe_instr::{
 };
 
 use crate::{
-	state::State,
+	state::{
+		Execute,
+		State,
+	},
 	Result
 };
 
@@ -48,9 +51,15 @@ fn execute_ri(s: &mut State, instr: &ri::Instruction) -> Result<()> {
 	Ok(())
 }
 
-pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
-	match instr {
-		Instruction::Rr(i) => execute_rr(s, i),
-		Instruction::Ri(i) => execute_ri(s, i),
+pub struct Memory;
+
+impl Execute for Memory {
+	type I = Instruction;
+
+	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
+		match instr {
+			Instruction::Rr(i) => execute_rr(s, i),
+			Instruction::Ri(i) => execute_ri(s, i),
+		}
 	}
 }

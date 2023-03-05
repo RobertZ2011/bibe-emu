@@ -10,6 +10,7 @@ use bibe_instr::{
 use crate::{
 	Result,
 	state::{
+		Execute,
 		execute_binop,
 		State,
 	},
@@ -31,17 +32,23 @@ fn shift(s: &Shift, value: u32) -> u32 {
 	}
 }
 
-pub fn execute(s: &mut State, instr: &Instruction) -> Result<()> {
-	let rs = s.read_reg(instr.lhs);
-	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
-	let res = execute_binop(instr.op, rs, rq)?;
+pub struct Rrr;
 
-	// The cmp instruction touches psr
-	if instr.op == BinOp::Cmp {
-		let mut psr = s.read_psr();
-		psr.set_cmp_res(res);
-		s.write_psr(psr);
+impl Execute for Rrr {
+	type I = Instruction;
+
+	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
+		let rs = s.read_reg(instr.lhs);
+		let rq = shift(&instr.shift, s.read_reg(instr.rhs));
+		let res = execute_binop(instr.op, rs, rq)?;
+	
+		// The cmp instruction touches psr
+		if instr.op == BinOp::Cmp {
+			let mut psr = s.read_psr();
+			psr.set_cmp_res(res);
+			s.write_psr(psr);
+		}
+		s.write_reg(instr.dest, res);
+		Ok(())
 	}
-	s.write_reg(instr.dest, res);
-	Ok(())
 }

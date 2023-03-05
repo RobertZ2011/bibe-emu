@@ -99,6 +99,11 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> Result<u32> {
 	}
 }
 
+pub(self) trait Execute {
+	type I;
+	fn execute(s: &mut State, i: &Self::I) -> Result<()>;
+}
+
 impl State {
 	pub fn new(memory: Box<dyn Memory>) -> State {
 		State {
@@ -273,10 +278,10 @@ impl State {
 		self.pc_changed = false;
 
 		let res = match instr {
-			Instruction::Rrr(i) => rrr::execute(self, i),
-			Instruction::Rri(i) => rri::execute(self, i),
-			Instruction::Memory(i) => memory::execute(self, i),
-			Instruction::Model(i) => model::execute(self, i),
+			Instruction::Rrr(i) => rrr::Rrr::execute(self, i),
+			Instruction::Rri(i) => rri::Rri::execute(self, i),
+			Instruction::Memory(i) => memory::Memory::execute(self, i),
+			Instruction::Model(i) => model::Model::execute(self, i),
 			_ => panic!("Unsupported instruction type")
 		};
 
