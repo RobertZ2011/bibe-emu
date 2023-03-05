@@ -7,13 +7,11 @@ use bibe_instr::{
 	},
 };
 
-use crate::{
-	Result,
-	state::{
-		Execute,
-		execute_binop,
-		State,
-	},
+use crate::Result;
+use super::{
+	Execute,
+	State,
+	util::execute_binop,
 };
 
 fn shift(s: &Shift, value: u32) -> u32 {

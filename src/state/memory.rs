@@ -8,12 +8,10 @@ use bibe_instr::{
 	}
 };
 
-use crate::{
-	state::{
-		Execute,
-		State,
-	},
-	Result
+use crate::Result;
+use super::{
+	Execute,
+	State,
 };
 
 fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {

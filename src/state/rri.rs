@@ -6,14 +6,14 @@ use bibe_instr::{
 	},
 };
 
-use crate::{
-	Result,
-	state::{
+use crate::Result;
+use super::{
+	Execute,
+	State,
+	util::{
 		CmpResult,
 		execute_binop,
-		Execute,
-		State,
-	}
+	},
 };
 
 use num_traits::FromPrimitive;
