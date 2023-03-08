@@ -6,7 +6,10 @@ use bibe_instr::{
 	},
 };
 
-use crate::Result;
+use crate::{
+	Exception,
+	Result,
+};
 use super::{
 	Execute,
 	State,
@@ -51,6 +54,11 @@ impl Execute for Rri {
 
 		let src = s.read_reg(instr.src);
 		let imm = (instr.imm as i32) as u32;
+
+		if !s.target().supports_binop(instr.op) {
+			return Err(Exception::opcode());
+		}
+
 		let res = execute_binop(instr.op, src, imm)?;
 
 		// The cmp instruction touches psr

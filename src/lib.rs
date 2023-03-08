@@ -3,6 +3,7 @@ use num_derive::{ FromPrimitive, ToPrimitive };
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
 pub mod memory;
 pub mod state;
+pub mod target;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub enum ExceptionKind {

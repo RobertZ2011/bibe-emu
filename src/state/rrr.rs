@@ -7,7 +7,10 @@ use bibe_instr::{
 	},
 };
 
-use crate::Result;
+use crate::{
+	Exception,
+	Result,
+};
 use super::{
 	Execute,
 	State,
@@ -38,6 +41,11 @@ impl Execute for Rrr {
 	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
 		let rs = s.read_reg(instr.lhs);
 		let rq = shift(&instr.shift, s.read_reg(instr.rhs));
+
+		if !s.target().supports_binop(instr.op) {
+			return Err(Exception::opcode());
+		}
+
 		let res = execute_binop(instr.op, rs, rq)?;
 	
 		// The cmp instruction touches psr

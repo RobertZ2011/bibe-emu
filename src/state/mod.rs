@@ -11,7 +11,8 @@ use crate::{
 	memory::Memory, 
 	Exception, 
 	ExceptionKind,
-	Result
+	Result,
+	target::Target,
 };
 
 use bitfield::bitfield;
@@ -39,6 +40,7 @@ bitfield! {
 pub struct State {
 	regs: [u32; 31],
 	memory: Box<dyn Memory>,
+	target: Target,
 	pc_changed: bool,
 
 	psr: Psr,
@@ -59,10 +61,11 @@ pub(self) trait Execute {
 }
 
 impl State {
-	pub fn new(memory: Box<dyn Memory>) -> State {
+	pub fn new(memory: Box<dyn Memory>, target: Target) -> State {
 		State {
 			regs: [0u32; 31],
 			memory: memory,
+			target: target,
 			pc_changed: false,
 
 			psr: Psr(0),
@@ -170,6 +173,10 @@ impl State {
 
 	pub fn mem_mut<'a>(&'a mut self) -> &'a mut dyn Memory {
 		self.memory.as_mut()
+	}
+
+	pub fn target<'a>(&'a self) -> &'a Target {
+		&self.target
 	}
 
 	pub fn reset(&mut self) {
