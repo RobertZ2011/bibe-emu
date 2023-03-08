@@ -1,15 +1,11 @@
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
 use bibe_instr::Width;
 
-use log::debug;
-
-use crate::{
-	Exception,
-	memory::Memory,
-	Result,
-};
+use crate::Result;
 
 use std::io;
+
+use super::Memory;
 
 #[derive(Debug)]
 pub struct Image {
@@ -26,26 +22,6 @@ impl Image {
 		}
 	}
 
-	fn validate_addr(&self, addr: u32, width: Width) -> Result<()> {
-		if addr as usize >= self.mem.len() {
-			debug!("Attempt to access invalid address 0x{:08x}", addr);
-			return Err(Exception::mem_fault(addr, false));
-		}
-
-		let aligned = match width {
-			Width::Short => addr & 0x1 == 0,
-			Width::Word => addr & 0x3 == 0,
-			_ => true,
-		};
-
-		if !aligned {
-			debug!("Attempt to perform unaligned access with {:?} at 0x{:08x}", width, addr);
-			return Err(Exception::mem_fault(addr, true));
-		}
-
-		Ok(())
-	}
-
 	#[inline(always)]
 	fn get(&self, addr: u32) -> u32 {
 		self.mem[addr as usize].into()
@@ -58,9 +34,11 @@ impl Image {
 }
 
 impl Memory for Image {
-	fn read(&self, addr: u32, width: Width) -> Result<u32> {
-		let _ = self.validate_addr(addr, width)?;
+	fn size(&self) -> u32 {
+		self.mem.len() as u32
+	}
 
+	fn read_validated(&self, addr: u32, width: Width) -> Result<u32> {
 		Ok(match width {
 			Width::Byte => self.get(addr),
 			Width::Short => self.get(addr) | self.get(addr + 1) << 8,
@@ -69,9 +47,7 @@ impl Memory for Image {
 		})
 	}
 
-	fn write(&mut self, addr: u32, width: Width, value: u32) -> Result<()> {
-		let _ = self.validate_addr(addr, width)?;
-
+	fn write_validated(&mut self, addr: u32, width: Width, value: u32) -> Result<()> {
 		Ok(match width {
 			Width::Byte => self.set(addr, value & 0xff),
 			Width::Short => {
