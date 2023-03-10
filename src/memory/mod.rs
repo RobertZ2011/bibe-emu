@@ -20,7 +20,7 @@ pub struct RegionSlice<'a> {
 	size: u32,
 }
 
-/// Trait that represents an interface into addressable memory
+/// Represents an interface into addressable memory
 pub trait Memory {
 	fn read(&self, addr: u32, width: Width) -> Result<u32> {
 		if !self.contains(addr) || !self.validate_access(addr, width) {
@@ -62,10 +62,14 @@ pub trait Memory {
 	fn size(&self) -> u32;
 
 	/// Perform the memory read, addr has already been validated
-	fn read_validated(&self, addr: u32, width: Width) -> Result<u32>;
+	fn read_validated(&self, addr: u32, _width: Width) -> Result<u32> {
+		Err(Exception::mem_fault(addr, false))
+	}
 
 	/// Perform the memory write, addr has already been validated
-	fn write_validated(&mut self, addr: u32, width: Width, value: u32) -> Result<()>;	
+	fn write_validated(&mut self, addr: u32, _width: Width, _value: u32) -> Result<()> {
+		Err(Exception::mem_fault(addr, false))
+	}
 }
 
 impl Memory for RegionSlice<'_> {

@@ -1,4 +1,7 @@
-use std::fmt;
+use std::{
+	fmt,
+	sync::{ Arc, Mutex },
+};
 
 use bibe_instr::{
 	Encode,
@@ -39,7 +42,7 @@ bitfield! {
 
 pub struct State {
 	regs: [u32; 31],
-	memory: Box<dyn Memory>,
+	memory: Option<Arc<Mutex<dyn Memory>>>,
 	target: Target,
 	pc_changed: bool,
 
@@ -61,11 +64,11 @@ pub(self) trait Execute {
 }
 
 impl State {
-	pub fn new(memory: Box<dyn Memory>, target: Target) -> State {
+	pub fn new(memory: Option<Arc<Mutex<dyn Memory>>>, target: Target) -> State {
 		State {
 			regs: [0u32; 31],
-			memory: memory,
-			target: target,
+			memory,
+			target,
 			pc_changed: false,
 
 			psr: Psr(0),
@@ -167,14 +170,6 @@ impl State {
 		self.write_reg(Register::sp(), value)
 	}
 
-	pub fn mem<'a>(&'a self) -> &'a dyn Memory {
-		self.memory.as_ref()
-	}
-
-	pub fn mem_mut<'a>(&'a mut self) -> &'a mut dyn Memory {
-		self.memory.as_mut()
-	}
-
 	pub fn target<'a>(&'a self) -> &'a Target {
 		&self.target
 	}
@@ -266,7 +261,11 @@ impl State {
 	}
 
 	pub fn execute(&mut self) {
-		let res = self.mem().read(self.read_pc(), Width::Word);
+		if self.memory.is_none() {
+			return;
+		}
+
+		let res = self.memory.as_ref().unwrap().lock().unwrap().read(self.read_pc(), Width::Word);
 		if let Err(e) = res {
 			self.handle_exception(&e);
 			return;
@@ -284,6 +283,32 @@ impl State {
 		self.execute_one(&instruction);
 	}
  }
+
+impl Memory for State {
+	fn size(&self) -> u32 {
+		if self.memory.is_none() {
+			return 0;
+		}
+
+		self.memory.as_ref().unwrap().lock().unwrap().size()
+	}
+
+	fn read(&self, addr: u32, width: Width) -> Result<u32> {
+		if self.memory.is_none() {
+			return Err(Exception::mem_fault(addr, false));
+		}
+
+		self.memory.as_ref().unwrap().lock().unwrap().read(addr, width)
+	}
+
+	fn write(&mut self, addr: u32, width: Width, val: u32) -> Result<()> {
+		if self.memory.is_none() {
+			return Err(Exception::mem_fault(addr, false));
+		}
+
+		self.memory.as_ref().unwrap().lock().unwrap().write(addr, width, val)
+	}
+}
 
 impl fmt::Display for State {
 	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {

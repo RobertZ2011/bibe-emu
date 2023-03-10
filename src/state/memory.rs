@@ -8,7 +8,11 @@ use bibe_instr::{
 	}
 };
 
-use crate::Result;
+use crate::{
+	memory::Memory as MemTrait,
+	Result,
+};
+
 use super::{
 	Execute,
 	State,
@@ -21,12 +25,12 @@ fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {
 	let addr = rs + (rq << instr.shift);
 	match op {
 		OpType::Load => {
-			let value = s.mem().read(addr, width)?;
+			let value = s.read(addr, width)?;
 			s.write_reg(instr.rd, value);
 		},
 		OpType::Store => {
 			let value = s.read_reg(instr.rd);
-			s.mem_mut().write(addr, width, value)?;
+			s.write(addr, width, value)?;
 		},
 	}
 	Ok(())
@@ -38,12 +42,12 @@ fn execute_ri(s: &mut State, instr: &ri::Instruction) -> Result<()> {
 	let addr = rs.wrapping_add(instr.imm as u32);
 	match op {
 		OpType::Load => {
-			let value = s.mem().read(addr, width)?;
+			let value = s.read(addr, width)?;
 			s.write_reg(instr.rd, value);
 		},
 		OpType::Store => {
 			let value = s.read_reg(instr.rd);
-			s.mem_mut().write(addr, width, value)?;
+			s.write(addr, width, value)?;
 		}
 	}
 	Ok(())
