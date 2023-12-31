@@ -1,10 +1,6 @@
 use bibe_instr::{
 	BinOp,
-	rrr::{
-		Instruction,
-		Shift,
-		ShiftKind,
-	},
+	rrr::Instruction,
 };
 
 use crate::{
@@ -15,23 +11,8 @@ use super::{
 	Execute,
 	State,
 	util::execute_binop,
+	shift
 };
-
-fn shift(s: &Shift, value: u32) -> u32 {
-	let Shift {
-		kind,
-		shift: amount,
-	} = s;
-
-	match kind {
-		ShiftKind::Shl => value << amount,
-		ShiftKind::Shr => value >> amount,
-		ShiftKind::Asl => ((value as i32) << amount) as u32,
-		ShiftKind::Asr => ((value as i32) >> amount) as u32,
-		ShiftKind::Rol => value.rotate_left(*amount as u32),
-		ShiftKind::Ror => value.rotate_right(*amount as u32)
-	}
-}
 
 pub struct Rrr;
 

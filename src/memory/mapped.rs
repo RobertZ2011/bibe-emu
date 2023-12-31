@@ -45,6 +45,7 @@ impl Mapped {
 	}
 
 	fn find_region(&self, addr: u32) -> Option<&MappedRegion> {
+		//TODO: make this work in constant time
 		for region in &self.regions {
 			if addr >= region.start && addr < region.end() {
 				return Some(region);
@@ -55,6 +56,7 @@ impl Mapped {
 	}
 
 	fn find_region_mut(&mut self, addr: u32) -> Option<&mut MappedRegion> {
+		//TODO: make this work in constant time
 		for region in &mut self.regions {
 			if addr >= region.start && addr < region.end() {
 				return Some(region);
@@ -62,6 +64,10 @@ impl Mapped {
 		}
 
 		None
+	}
+
+	pub fn is_mapped(&self, addr: u32) -> bool {
+		self.find_region(addr).is_some()
 	}
 
 	/// Attempt to map `memory` at the given start address

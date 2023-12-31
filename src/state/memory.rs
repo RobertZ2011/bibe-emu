@@ -16,13 +16,14 @@ use crate::{
 use super::{
 	Execute,
 	State,
+	shift
 };
 
 fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {
 	let (op, width) = instr.op;
 	let rs = s.read_reg(instr.rs);
 	let rq = s.read_reg(instr.rq);
-	let addr = rs + (rq << instr.shift);
+	let addr = rs + shift(&instr.shift, rq);
 	match op {
 		OpType::Load => {
 			let value = s.read(addr, width)?;

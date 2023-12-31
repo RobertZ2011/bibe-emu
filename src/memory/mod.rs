@@ -9,10 +9,12 @@ use bibe_instr::Width;
 mod image;
 mod mapped;
 mod mock;
+mod simple_image;
 
 pub use image::Image;
 pub use mapped::Mapped;
 pub use mock::Mock;
+pub use simple_image::SimpleImage;
 
 pub struct RegionSlice<'a> {
 	parent: &'a mut dyn Memory,

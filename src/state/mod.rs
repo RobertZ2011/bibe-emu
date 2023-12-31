@@ -7,6 +7,8 @@ use bibe_instr::{
 	Encode,
 	Instruction,
 	Register,
+	Shift,
+	ShiftKind,
 	Width,
 };
 
@@ -23,12 +25,12 @@ use log::debug;
 use num_traits::ToPrimitive;
 
 mod memory;
-mod model;
+mod csr;
 mod rrr;
 mod rri;
 mod util;
 
-use model::Msr;
+use csr::Csr;
 
 bitfield! {
 	pub struct Psr(u32);
@@ -63,6 +65,22 @@ pub(self) trait Execute {
 	fn execute(s: &mut State, i: &Self::I) -> Result<()>;
 }
 
+pub fn shift(s: &Shift, value: u32) -> u32 {
+	let Shift {
+		kind,
+		shift: amount,
+	} = s;
+
+	match kind {
+		ShiftKind::Shl => value << amount,
+		ShiftKind::Shr => value >> amount,
+		ShiftKind::Asl => ((value as i32) << amount) as u32,
+		ShiftKind::Asr => ((value as i32) >> amount) as u32,
+		ShiftKind::Rol => value.rotate_left(*amount as u32),
+		ShiftKind::Ror => value.rotate_right(*amount as u32)
+	}
+}
+
 impl State {
 	pub fn new(memory: Option<Arc<Mutex<dyn Memory>>>, target: Target) -> State {
 		State {
@@ -79,6 +97,10 @@ impl State {
 			isr_err1: 0,
 			isr_err2: 0,
 		}
+	}
+
+	pub fn attach_memory(&mut self, memory: Option<Arc<Mutex<dyn Memory>>>) {
+		self.memory = memory
 	}
 
 	pub fn read_reg(&self, r: Register) -> u32 {
@@ -107,46 +129,46 @@ impl State {
 		self.psr = value;
 	}
 
-	pub fn read_msr(&self, reg: Msr) -> Option<u32> {
+	pub fn read_msr(&self, reg: Csr) -> Option<u32> {
 		match reg {
-			Msr::Psr => Some(self.read_psr().0),
-			Msr::IsrBase => Some(self.isr_base),
-			Msr::IsrSp => Some(self.isr_sp),
-			Msr::IsrOldSp => Some(self.isr_old_sp),
-			Msr::IsrOldPc => Some(self.isr_old_pc),
-			Msr::IsrErr1 => Some(self.isr_err1),
-			Msr::IsrErr2 => Some(self.isr_err2),
+			Csr::Psr => Some(self.read_psr().0),
+			Csr::IsrBase => Some(self.isr_base),
+			Csr::IsrSp => Some(self.isr_sp),
+			Csr::IsrOldSp => Some(self.isr_old_sp),
+			Csr::IsrOldPc => Some(self.isr_old_pc),
+			Csr::IsrErr1 => Some(self.isr_err1),
+			Csr::IsrErr2 => Some(self.isr_err2),
 			_ => None,
 		}
 	}
 
-	pub fn write_msr(&mut self, reg: Msr, value: u32) -> Option<()> {
+	pub fn write_msr(&mut self, reg: Csr, value: u32) -> Option<()> {
 		match reg {
-			Msr::Psr => {
+			Csr::Psr => {
 				self.write_psr(Psr(value));
 				Some(())
 			},
-			Msr::IsrBase => {
+			Csr::IsrBase => {
 				self.isr_base = value;
 				Some(())
 			},
-			Msr::IsrSp => {
+			Csr::IsrSp => {
 				self.isr_sp = value;
 				Some(())
 			},
-			Msr::IsrOldSp => {
+			Csr::IsrOldSp => {
 				self.isr_old_sp = value;
 				Some(())
 			},
-			Msr::IsrOldPc => {
+			Csr::IsrOldPc => {
 				self.isr_old_pc = value;
 				Some(())
 			},
-			Msr::IsrErr1 => {
+			Csr::IsrErr1 => {
 				self.isr_err1 = value;
 				Some(())
 			},
-			Msr::IsrErr2 => {
+			Csr::IsrErr2 => {
 				self.isr_err2 = value;
 				Some(())
 			},
@@ -192,12 +214,12 @@ impl State {
 	fn handle_exception(&mut self, e: &Exception) {
 		if self.psr.exception_mode() == 1 {
 			if e.kind == ExceptionKind::IsrExit {
-				self.write_reg(Register::sp(), self.read_msr(Msr::IsrOldSp).unwrap());
-				self.write_reg(Register::pc(), self.read_msr(Msr::IsrOldPc).unwrap());
-				self.write_msr(Msr::IsrOldSp, 0);
-				self.write_msr(Msr::IsrOldPc, 0);
-				self.write_msr(Msr::IsrErr1, 0);
-				self.write_msr(Msr::IsrErr2, 0);
+				self.write_reg(Register::sp(), self.read_msr(Csr::IsrOldSp).unwrap());
+				self.write_reg(Register::pc(), self.read_msr(Csr::IsrOldPc).unwrap());
+				self.write_msr(Csr::IsrOldSp, 0);
+				self.write_msr(Csr::IsrOldPc, 0);
+				self.write_msr(Csr::IsrErr1, 0);
+				self.write_msr(Csr::IsrErr2, 0);
 
 				self.psr.set_exception_enabled(1);
 				self.psr.set_exception_mode(0);
@@ -215,14 +237,14 @@ impl State {
 
 			self.psr.set_exception_enabled(0);
 			self.psr.set_exception_mode(1);
-			self.write_msr(Msr::IsrOldSp, old_sp);
-			self.write_msr(Msr::IsrOldPc, old_pc);
-			self.write_sp(self.read_msr(Msr::IsrSp).unwrap());
-			self.write_msr(Msr::IsrErr1, e.err1);
-			self.write_msr(Msr::IsrErr1, e.err2);
+			self.write_msr(Csr::IsrOldSp, old_sp);
+			self.write_msr(Csr::IsrOldPc, old_pc);
+			self.write_sp(self.read_msr(Csr::IsrSp).unwrap());
+			self.write_msr(Csr::IsrErr1, e.err1);
+			self.write_msr(Csr::IsrErr1, e.err2);
 
 			let index: u32 = e.kind.to_u32().unwrap();
-			let handler = self.read_msr(Msr::IsrBase).unwrap() + 4 * index;
+			let handler = self.read_msr(Csr::IsrBase).unwrap() + 4 * index;
 			self.write_reg(Register::pc(), handler);
 
 			debug!("Handling exception {:?} old_sp: {:08x}, old_pc: {:08x} sp: {:08x}, pc: {:08x}", e, old_sp, old_pc, self.read_sp(), self.read_pc());
@@ -237,7 +259,7 @@ impl State {
 			Instruction::Rrr(i) => rrr::Rrr::execute(self, i),
 			Instruction::Rri(i) => rri::Rri::execute(self, i),
 			Instruction::Memory(i) => memory::Memory::execute(self, i),
-			Instruction::Model(i) => model::Model::execute(self, i),
+			Instruction::Csr(i) => csr::Register::execute(self, i),
 			_ => panic!("Unsupported instruction type")
 		};
 

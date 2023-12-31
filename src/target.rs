@@ -7,7 +7,7 @@ pub enum Extension {
 	IntegerMultplication,
 }
 
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Target {
 	extensions: HashSet<Extension>,
 }

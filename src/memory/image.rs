@@ -1,65 +1,87 @@
-/* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
-use bibe_instr::Width;
+use std::{
+	cell::RefCell,
+};
 
-use crate::Result;
+use super::{
+	Mapped,
+	Memory,
+	SimpleImage,
+};
 
-use std::io;
+#[derive(Clone, Copy, Debug)]
+pub enum PageSize {
+	K4,
+	M1,
+	M4,
+	M16,
+	M32,
+	M64,
+	M128,
+	M256,
+}
 
-use super::Memory;
+impl Into<u32> for PageSize {
+	fn into(self) -> u32 {
+		match self {
+			PageSize::K4 => 4096,
+			PageSize::M1 => 1024 * 1024,
+			PageSize::M4 => 4 * 1024 * 1024,
+			PageSize::M16 => 16 * 1024 * 1024,
+			PageSize::M32 => 32 * 1024 * 1024,
+			PageSize::M64 => 64 * 1024 * 1024,
+			PageSize::M128 => 128 * 1024 * 1024,
+			PageSize::M256 => 256 * 1024 * 1024,
+		}
+	}
+}
 
-#[derive(Debug)]
+/// Efficient memory device, memory is not allocated until needed
 pub struct Image {
-	mem: Vec<u8>,
+	mapped: RefCell<Mapped>,
+	page_size: PageSize,
 }
 
 impl Image {
-	pub fn load(r: &mut dyn io::Read) -> Image {
-		let mut data = Vec::new();
-		r.read_to_end(&mut data).expect("Failed to load image");
-
-		Image {
-			mem: data
+	pub fn new(page_size: PageSize) -> Self {
+		Self {
+			mapped: RefCell::new(Mapped::new()),
+			page_size
 		}
 	}
 
-	#[inline(always)]
-	fn get(&self, addr: u32) -> u32 {
-		self.mem[addr as usize].into()
-	}
+	fn create_page(&self, addr: u32) -> Option<()> {
+		let mapped = &mut self.mapped.borrow_mut();
+		let start_addr = addr;
 
-	#[inline(always)]
-	fn set(&mut self, addr: u32, value: u32) {
-		self.mem[addr as usize] = value as u8;
+		if self.contains(addr) {
+			return None;
+		}
+
+		let image = Box::new(SimpleImage::new(self.page_size.into())) as Box<dyn Memory>;
+		mapped.map(start_addr, image)?;
+
+		Some(())
 	}
 }
 
 impl Memory for Image {
 	fn size(&self) -> u32 {
-		self.mem.len() as u32
+		self.mapped.borrow().size()
 	}
 
-	fn read_validated(&self, addr: u32, width: Width) -> Result<u32> {
-		Ok(match width {
-			Width::Byte => self.get(addr),
-			Width::Short => self.get(addr) | self.get(addr + 1) << 8,
-			Width::Word => self.get(addr) | self.get(addr + 1) << 8 | 
-						self.get(addr  + 2) << 16 | self.get(addr + 3) << 24,
-		})
+	fn read(&self, addr: u32, width: bibe_instr::Width) -> crate::Result<u32> {
+		if !self.mapped.borrow().contains(addr) {
+			self.create_page(addr);
+		}
+
+		self.mapped.borrow().read(addr, width)
 	}
 
-	fn write_validated(&mut self, addr: u32, width: Width, value: u32) -> Result<()> {
-		Ok(match width {
-			Width::Byte => self.set(addr, value & 0xff),
-			Width::Short => {
-				self.set(addr, value & 0xff);
-				self.set(addr + 1, (value >> 8) & 0xff);
-			},
-			Width::Word => {
-				self.set(addr, value & 0xff);
-				self.set(addr + 1, (value >> 8) & 0xff);
-				self.set(addr + 2, (value >> 16) & 0xff);
-				self.set(addr + 3, (value >> 24) & 0xff);
-			},
-		})
+	fn write(&mut self, addr: u32, width: bibe_instr::Width, value: u32) -> crate::Result<()> {
+		if !self.mapped.borrow().contains(addr) {
+			self.create_page(addr);
+		}
+
+		self.mapped.borrow_mut().write(addr, width, value)
 	}
 }
