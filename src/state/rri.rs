@@ -7,8 +7,9 @@ use bibe_instr::{
 };
 
 use crate::{
-	Exception,
+	Interrupt,
 	Result,
+	state::Psr,
 };
 use super::{
 	Execute,
@@ -27,7 +28,7 @@ impl Execute for Rri {
 	type I = Instruction;
 
 	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
-		let cmp = CmpResult::from_u32(s.read_psr().cmp_res()).unwrap();
+		let cmp = CmpResult::from_u32(Psr(s.read_psr()).cmp_res()).unwrap();
 
 		match instr.cond {
 			Condition::Al => (),
@@ -56,16 +57,16 @@ impl Execute for Rri {
 		let imm = (instr.imm as i32) as u32;
 
 		if !s.target().supports_binop(instr.op) {
-			return Err(Exception::opcode());
+			return Err(Interrupt::opcode());
 		}
 
 		let res = execute_binop(instr.op, src, imm)?;
 
 		// The cmp instruction touches psr
 		if instr.op == BinOp::Cmp {
-			let mut psr = s.read_psr();
+			let mut psr = Psr(s.read_psr());
 			psr.set_cmp_res(res);
-			s.write_psr(psr);
+			s.write_psr(psr.0);
 		}
 		s.write_reg(instr.dest, res);
 

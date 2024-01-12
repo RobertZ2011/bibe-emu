@@ -39,7 +39,7 @@ impl Memory for Mock {
 
 	fn read_validated(&self, addr: u32, _width: Width) -> Result<u32> {
 		if self.should_fail {
-			Err(crate::Exception::mem_fault(addr, false))
+			Err(crate::Interrupt::mem_fault(addr))
 		}
 		else {
 			self.last_addr.set(addr);
@@ -49,7 +49,7 @@ impl Memory for Mock {
 
 	fn write_validated(&mut self, addr: u32, _width: Width, value: u32) -> Result<()> {
 		if self.should_fail {
-			Err(crate::Exception::mem_fault(addr, false))
+			Err(crate::Interrupt::mem_fault(addr))
 		}
 		else {
 			self.last_addr.set(addr);

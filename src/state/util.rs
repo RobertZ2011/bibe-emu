@@ -1,6 +1,7 @@
 use bibe_instr::BinOp;
+use log::debug;
 use crate::{
-    Exception,
+    Interrupt,
     Result,
 };
 
@@ -21,7 +22,7 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> Result<u32> {
 		BinOp::Sub => Ok(lhs.wrapping_sub(rhs)),
 		BinOp::Mul => Ok(lhs.wrapping_mul(rhs)),
 		BinOp::Div => if rhs == 0 {
-			Err(Exception::div_zero())
+			Err(Interrupt::opcode())
 		}
 		else {
 			Ok(lhs.wrapping_div(lhs / rhs))

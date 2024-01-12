@@ -1,6 +1,6 @@
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
 use crate::{
-	Exception,
+	Interrupt,
 	Result,
 };
 
@@ -26,7 +26,7 @@ pub struct RegionSlice<'a> {
 pub trait Memory {
 	fn read(&self, addr: u32, width: Width) -> Result<u32> {
 		if !self.contains(addr) || !self.validate_access(addr, width) {
-			return Err(Exception::mem_fault(addr, false));
+			return Err(Interrupt::mem_fault(addr));
 		}
 
 		self.read_validated(addr, width).map(move |x| x & width.to_mask())
@@ -34,7 +34,7 @@ pub trait Memory {
 
 	fn write(&mut self, addr: u32, width: Width, value: u32) -> Result<()> {
 		if !self.contains(addr) || !self.validate_access(addr, width) {
-			return Err(Exception::mem_fault(addr, false));
+			return Err(Interrupt::mem_fault(addr));
 		}
 
 		self.write_validated(addr, width, value & width.to_mask())
@@ -65,12 +65,12 @@ pub trait Memory {
 
 	/// Perform the memory read, addr has already been validated
 	fn read_validated(&self, addr: u32, _width: Width) -> Result<u32> {
-		Err(Exception::mem_fault(addr, false))
+		Err(Interrupt::mem_fault(addr))
 	}
 
 	/// Perform the memory write, addr has already been validated
 	fn write_validated(&mut self, addr: u32, _width: Width, _value: u32) -> Result<()> {
-		Err(Exception::mem_fault(addr, false))
+		Err(Interrupt::mem_fault(addr))
 	}
 }
 

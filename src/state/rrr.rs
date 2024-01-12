@@ -4,8 +4,9 @@ use bibe_instr::{
 };
 
 use crate::{
-	Exception,
+	Interrupt,
 	Result,
+	state::Psr,
 };
 use super::{
 	Execute,
@@ -24,16 +25,16 @@ impl Execute for Rrr {
 		let rq = shift(&instr.shift, s.read_reg(instr.rhs));
 
 		if !s.target().supports_binop(instr.op) {
-			return Err(Exception::opcode());
+			return Err(Interrupt::opcode());
 		}
 
 		let res = execute_binop(instr.op, rs, rq)?;
 	
 		// The cmp instruction touches psr
 		if instr.op == BinOp::Cmp {
-			let mut psr = s.read_psr();
+			let mut psr = Psr(s.read_psr());
 			psr.set_cmp_res(res);
-			s.write_psr(psr);
+			s.write_psr(psr.0);
 		}
 		s.write_reg(instr.dest, res);
 		Ok(())
