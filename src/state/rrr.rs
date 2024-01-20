@@ -11,7 +11,11 @@ use crate::{
 use super::{
 	Execute,
 	State,
-	util::execute_binop,
+	util::{
+		execute_binop,
+		check_binop,
+		BinOpOverflow,
+	},
 	shift
 };
 
@@ -30,10 +34,23 @@ impl Execute for Rrr {
 
 		let res = execute_binop(instr.op, rs, rq)?;
 	
-		// The cmp instruction touches psr
-		if instr.op == BinOp::Cmp {
+		// cc instructions touch psr
+		if instr.op.is_cc() {
 			let mut psr = Psr(s.read_psr());
-			psr.set_cmp_res(res);
+			let BinOpOverflow {
+				overflow: overflow,
+				carry: carry
+			} = check_binop(instr.op, rs, rq);
+
+			if overflow {
+				psr.set_v(1);
+			}
+
+			if carry {
+				psr.set_c(1);
+			}
+
+			psr.set_zn(res);
 			s.write_psr(psr.0);
 		}
 		s.write_reg(instr.dest, res);

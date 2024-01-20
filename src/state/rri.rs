@@ -16,7 +16,7 @@ use super::{
 	State,
 	util::{
 		CmpResult,
-		execute_binop,
+		execute_binop, BinOpOverflow, check_binop,
 	},
 };
 
@@ -28,44 +28,37 @@ impl Execute for Rri {
 	type I = Instruction;
 
 	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
-		let cmp = CmpResult::from_u32(Psr(s.read_psr()).cmp_res()).unwrap();
-
-		match instr.cond {
-			Condition::Al => (),
-			Condition::Eq => if cmp != CmpResult::Eq {
-				return Ok(());
-			},
-			Condition::Ne => if cmp == CmpResult::Eq {
-				return Ok(());
-			},
-			Condition::Gt => if cmp != CmpResult::Gt {
-				return Ok(());
-			},
-			Condition::Ge => if cmp != CmpResult::Gt && cmp != CmpResult::Eq {
-				return Ok(());
-			},
-			Condition::Lt => if cmp != CmpResult::Lt {
-				return Ok(());
-			},
-			Condition::Le => if cmp != CmpResult::Lt && cmp != CmpResult::Eq {
-				return Ok(());
-			},
-			Condition::Nv => return Ok(()),
-		};
-
 		let src = s.read_reg(instr.src);
 		let imm = (instr.imm as i32) as u32;
+		let psr = Psr(s.read_psr());
 
 		if !s.target().supports_binop(instr.op) {
 			return Err(Interrupt::opcode());
 		}
 
+		if !psr.should_execute(instr.cond) {
+			return Ok(());
+		}
+
 		let res = execute_binop(instr.op, src, imm)?;
 
-		// The cmp instruction touches psr
-		if instr.op == BinOp::Cmp {
-			let mut psr = Psr(s.read_psr());
-			psr.set_cmp_res(res);
+		// cc instructions touch psr
+		if instr.op.is_cc() {
+			let mut psr = psr;
+			let BinOpOverflow {
+				overflow: overflow,
+				carry: carry
+			} = check_binop(instr.op, src, imm);
+
+			if overflow {
+				psr.set_v(1);
+			}
+
+			if carry {
+				psr.set_c(1);
+			}
+
+			psr.set_zn(res);
 			s.write_psr(psr.0);
 		}
 		s.write_reg(instr.dest, res);

@@ -10,7 +10,7 @@ use bibe_instr::{
 	Register,
 	Shift,
 	ShiftKind,
-	Width,
+	Width, Condition,
 };
 
 use crate::{
@@ -35,11 +35,34 @@ use csr::CsrBlock;
 bitfield! {
 	pub struct Psr(u32);
 	impl Debug;
-	pub cmp_res, set_cmp_res : 1, 0;
+	pub v, set_v : 0, 0;
+	pub c, set_c : 1, 1;
+	pub z, set_z : 2, 2;
+	pub n, set_n : 3, 3;
 	pub msr_quiet, set_msr_quet : 2, 2;
 	pub msr_err, set_msr_err : 3, 3;
 	pub interrupt_mode, set_interrupt_mode : 4, 4;
 	pub exception_enabled, set_exception_enabled : 5, 5;
+}
+
+impl Psr {
+	pub fn set_zn(&mut self, val: u32) {
+		self.set_z((val == 0) as u32);
+		self.set_n(((val  as i32) < 0) as u32);
+	}
+
+	pub fn should_execute(&self, cond: Condition) -> bool {
+		match cond {
+			Condition::Always => true,
+			Condition::Overflow => self.v() == 1,
+			Condition::Carry => self.c() == 1,
+			Condition::Zero => self.z() == 1,
+			Condition::Negative => self.n() == 1,
+			Condition::NotZero => self.z() == 0,
+			Condition::NotNegative => self.n() == 0,
+			Condition::GreaterThan => self.n() == 0 && self.z() == 0,
+		}
+	}
 }
 
 pub struct State {
@@ -220,7 +243,7 @@ impl State {
 		self.pc_touched = true;
 	}
 
-	fn handle_interrupt(&mut self, e: &Interrupt) {
+	pub fn handle_interrupt(&mut self, e: &Interrupt) {
 		let mut psr = Psr(self.read_psr());
 
 		if psr.interrupt_mode() == 1 {
@@ -278,7 +301,7 @@ impl State {
 		}
 	}
 
-	fn execute_one(&mut self, instr: &Instruction) {
+	pub fn execute(&mut self, instr: &Instruction) {
 		debug!("Executing {:08x} {:?}", instr.encode(), instr);
 		self.pc_touched = false;
 
@@ -305,32 +328,46 @@ impl State {
 
 	pub fn execute_instructions(&mut self, instrs: &[Instruction]) {
 		for instr in instrs {
-			self.execute_one(instr)
+			self.execute(instr)
 		}
 	}
 
-	pub fn execute(&mut self) {
+	pub fn fetch(&self) -> Result<u32> {
+		debug!("Fetching instruction at {:08x}", self.read_pc());
+		let res = self.memory.as_ref().unwrap().lock().unwrap().read(self.read_pc(), Width::Word);
+		if res.is_err() {
+			debug!("Failed to fetch instruction");
+		}
+		res
+	}
+
+	pub fn decode(&self, instr: u32) -> Result<Instruction> {
+		let instruction = Instruction::decode(instr);
+		if instruction.is_none() {
+			debug!("Failed to decode instruction {instr:08x}");
+			return Err(Interrupt::opcode());
+		}
+		Ok(instruction.unwrap())
+	}
+
+	pub fn execute_one(&mut self) {
 		if self.memory.is_none() {
 			return;
 		}
 
-		let res = self.memory.as_ref().unwrap().lock().unwrap().read(self.read_pc(), Width::Word);
-		if let Err(e) = res {
-			self.handle_interrupt(&e);
-			return;
-		}
-		let value = res.unwrap();
-		debug!("Fetching instruction at {:08x}", self.read_pc());
-
-		let instruction = Instruction::decode(value);
-		if instruction.is_none() {
-			debug!("Failed to decode instruction {value:08x}");
-			self.handle_interrupt(&Interrupt::opcode());
+		let instr = self.fetch();
+		if let Err(int) = instr {
+			self.handle_interrupt(&int);
 			return;
 		}
 
-		let instruction = instruction.unwrap();
-		self.execute_one(&instruction);
+		let instr = self.decode(instr.unwrap());
+		if let Err(int) = instr {
+			self.handle_interrupt(&int);
+			return;
+		}
+
+		self.execute(&instr.unwrap());
 	}
  }
 

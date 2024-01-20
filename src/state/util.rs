@@ -16,10 +16,34 @@ pub(crate) enum CmpResult {
 	Eq,
 }
 
+pub struct BinOpOverflow {
+	pub overflow: bool,
+	pub carry: bool,
+}
+
+pub(crate) fn check_binop(op: BinOp, lhs: u32, rhs: u32) -> BinOpOverflow {
+	let ilhs = lhs as i32;
+	let irhs = rhs as i32;
+
+	match op {
+		BinOp::Addcc => BinOpOverflow {
+			overflow: ilhs.overflowing_add(irhs).1,
+			carry: lhs.overflowing_add(rhs).1
+		},
+		BinOp::Subcc => BinOpOverflow {
+			overflow: ilhs.overflowing_sub(irhs).1,
+			carry: lhs.overflowing_sub(rhs).1
+		},
+		_ => BinOpOverflow { overflow: false, carry: false },
+	}
+}
+
 pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> Result<u32> {
 	match op {
-		BinOp::Add => Ok(lhs.wrapping_add(rhs)),
-		BinOp::Sub => Ok(lhs.wrapping_sub(rhs)),
+		BinOp::Add
+		| BinOp::Addcc => Ok(lhs.wrapping_add(rhs)),
+		BinOp::Sub 
+		| BinOp::Subcc => Ok(lhs.wrapping_sub(rhs)),
 		BinOp::Mul => Ok(lhs.wrapping_mul(rhs)),
 		BinOp::Div => if rhs == 0 {
 			Err(Interrupt::opcode())
@@ -43,12 +67,5 @@ pub(crate) fn execute_binop(op: BinOp, lhs: u32, rhs: u32) -> Result<u32> {
 
 		BinOp::Not => Ok(!(lhs + rhs)),
 		BinOp::Neg => Ok(-((lhs + rhs) as i32) as u32),
-		BinOp::Cmp => Ok(if lhs == rhs {
-			CmpResult::Eq
-		} else if lhs < rhs {
-			CmpResult::Lt
-		} else {
-			CmpResult::Gt
-		}.to_u32().unwrap()),
 	}
 }
