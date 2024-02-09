@@ -1,10 +1,4 @@
-use bibe_instr::{
-	BinOp,
-	rri::{
-		Instruction,
-		Condition
-	},
-};
+use bibe_instr::rri::Instruction;
 
 use crate::{
 	Interrupt,
@@ -12,15 +6,13 @@ use crate::{
 	state::Psr,
 };
 use super::{
-	Execute,
-	State,
 	util::{
-		CmpResult,
-		execute_binop, BinOpOverflow, check_binop,
-	},
+		BinOpOverflow,
+		check_binop,
+		execute_binop
+	 },
+	  Execute, State
 };
-
-use num_traits::FromPrimitive;
 
 pub struct Rri;
 
@@ -46,8 +38,8 @@ impl Execute for Rri {
 		if instr.op.is_cc() {
 			let mut psr = psr;
 			let BinOpOverflow {
-				overflow: overflow,
-				carry: carry
+				overflow,
+				carry
 			} = check_binop(instr.op, src, imm);
 
 			if overflow {

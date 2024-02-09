@@ -1,12 +1,10 @@
 use bibe_instr::BinOp;
-use log::debug;
 use crate::{
     Interrupt,
     Result,
 };
 
 use num_derive::{ FromPrimitive, ToPrimitive };
-use num_traits::ToPrimitive;
 
 #[derive(Copy, Clone, Debug, PartialEq, Eq, FromPrimitive, ToPrimitive)]
 pub(crate) enum CmpResult {

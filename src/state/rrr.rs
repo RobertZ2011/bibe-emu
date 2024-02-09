@@ -1,7 +1,4 @@
-use bibe_instr::{
-	BinOp,
-	rrr::Instruction,
-};
+use bibe_instr::rrr::Instruction;
 
 use crate::{
 	Interrupt,
@@ -38,8 +35,8 @@ impl Execute for Rrr {
 		if instr.op.is_cc() {
 			let mut psr = Psr(s.read_psr());
 			let BinOpOverflow {
-				overflow: overflow,
-				carry: carry
+				overflow,
+				carry
 			} = check_binop(instr.op, rs, rq);
 
 			if overflow {

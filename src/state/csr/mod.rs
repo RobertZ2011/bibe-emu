@@ -1,8 +1,7 @@
 use bibe_instr::{
-	csr::{Instruction, Operation},
+	csr::Instruction,
 	Width
 };
-use log::debug;
 
 use crate::{
 	Result,
@@ -42,18 +41,17 @@ impl Execute for Register {
 	type I = Instruction;
 
 	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
-		let width = instr.op.width();
+		let width = instr.op.width;
 
-		if width.is_none() {
-			debug!("No opcode width");
-			return Err(Interrupt::opcode());
-		}
-
-		if  instr.op.is_read() {
-			let value = s.read_csr(instr.imm, width.unwrap()).unwrap();
+		if  instr.op.is_load() {
+			let value = s.read_csr(instr.imm, width).unwrap();
 				s.write_reg(instr.reg, value);
 		} else {
-			s.write_csr(instr.imm, s.read_reg(instr.reg), width.unwrap()).unwrap();
+			//TODO: remove this hack
+			if instr.imm == ISR_ENTER_REG {
+				return Err(Interrupt::swi());
+			}
+			s.write_csr(instr.imm, s.read_reg(instr.reg), width).unwrap();
 		}
 	
 		Ok(())

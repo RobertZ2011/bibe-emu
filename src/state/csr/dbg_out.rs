@@ -28,11 +28,11 @@ impl DbgOutBlock {
 }
 
 impl CsrBlock for DbgOutBlock {
-	fn read(&mut self, state: &State, reg: u32, width: Width) -> Option<u32> {
+	fn read(&mut self, _state: &State, _reg: u32, _width: Width) -> Option<u32> {
 		None
 	}
 
-	fn write(&mut self, state: &State, reg: u32, width: Width, value: u32) -> Option<()> {
+	fn write(&mut self, _state: &State, reg: u32, _width: Width, value: u32) -> Option<()> {
 		log::debug!("Dbg write {reg:08x} {value:08x}");
 		if reg == DBG_OUT_CHAR_OUT0_REG {
 			print!("{}", char::from_u32(value).unwrap());
@@ -50,7 +50,7 @@ impl CsrBlock for DbgOutBlock {
 	fn reset(&mut self) {
 	}
 
-	fn has_reg(&self, reg: u32) -> bool {
+	fn has_reg(&self, _reg: u32) -> bool {
 		true
 	}
 

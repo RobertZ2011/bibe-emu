@@ -64,6 +64,14 @@ impl Interrupt {
 			err1: addr, err2: 0 
 		}
 	}
+
+	pub fn swi() -> Interrupt {
+		Interrupt {
+			kind: InterruptKind::Swi,
+			err1: 0,
+			err2: 0,
+		}
+	}
 }
 
 pub type Result<T> = std::result::Result<T, Interrupt>;

@@ -4,8 +4,8 @@ use bibe_instr::{
 		rr,
 		ri,
 		Instruction,
-		OpType,
-	}
+	},
+	LoadStore,
 };
 
 use crate::{
@@ -20,35 +20,33 @@ use super::{
 };
 
 fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {
-	let (op, width) = instr.op;
 	let rs = s.read_reg(instr.rs);
 	let rq = s.read_reg(instr.rq);
 	let addr = rs + shift(&instr.shift, rq);
-	match op {
-		OpType::Load => {
-			let value = s.read(addr, width)?;
+	match instr.op.op {
+		LoadStore::Load => {
+			let value = s.read(addr, instr.op.width)?;
 			s.write_reg(instr.rd, value);
 		},
-		OpType::Store => {
+		LoadStore::Store => {
 			let value = s.read_reg(instr.rd);
-			s.write(addr, width, value)?;
+			s.write(addr, instr.op.width, value)?;
 		},
 	}
 	Ok(())
 }
 
 fn execute_ri(s: &mut State, instr: &ri::Instruction) -> Result<()> {
-	let (op, width) = instr.op;
 	let rs = s.read_reg(instr.rs);
 	let addr = rs.wrapping_add(instr.imm as u32);
-	match op {
-		OpType::Load => {
-			let value = s.read(addr, width)?;
+	match instr.op.op {
+		LoadStore::Load => {
+			let value = s.read(addr, instr.op.width)?;
 			s.write_reg(instr.rd, value);
 		},
-		OpType::Store => {
+		LoadStore::Store => {
 			let value = s.read_reg(instr.rd);
-			s.write(addr, width, value)?;
+			s.write(addr, instr.op.width, value)?;
 		}
 	}
 	Ok(())

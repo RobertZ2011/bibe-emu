@@ -301,7 +301,7 @@ impl State {
 		}
 	}
 
-	pub fn execute(&mut self, instr: &Instruction) {
+	pub fn execute(&mut self, instr: &Instruction) -> Result<()>{
 		debug!("Executing {:08x} {:?}", instr.encode(), instr);
 		self.pc_touched = false;
 
@@ -313,9 +313,8 @@ impl State {
 			_ => panic!("Unsupported instruction type")
 		};
 
-		if let Err(e) = res {
-			self.handle_interrupt(&e);
-			return;
+		if res.is_err() {
+			return res;
 		}
 
 		// If pc wasn't updated by a jump, advance to next instruction
@@ -324,11 +323,14 @@ impl State {
 		}
 
 		debug!("{}", self);
+		Ok(())
 	}
 
 	pub fn execute_instructions(&mut self, instrs: &[Instruction]) {
 		for instr in instrs {
-			self.execute(instr)
+			if let Err(interrupt) = self.execute(instr) {
+				self.handle_interrupt(&interrupt);
+			}
 		}
 	}
 
@@ -367,7 +369,10 @@ impl State {
 			return;
 		}
 
-		self.execute(&instr.unwrap());
+		let res = self.execute(&instr.unwrap());
+		if let Err(int) = res {
+			self.handle_interrupt(&int);
+		}
 	}
  }
 
