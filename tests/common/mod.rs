@@ -67,7 +67,7 @@ pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
 	let mut state = State::new(None, Target::new());
 	let mut executed = 0;
 
-	state.write_reg(Register::r1(), a0);
+	state.write_reg(Register::a0(), a0);
 
 	loop {
 		let pc = state.read_pc();
@@ -88,5 +88,5 @@ pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
 		executed += 1;
 	}
 
-	state.read_reg(Register::r8())
+	state.read_reg(Register::o0())
 }
