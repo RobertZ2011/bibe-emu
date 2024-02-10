@@ -5,7 +5,7 @@ use bibe_asm::asm::Directive;
 use bibe_emu::InterruptKind;
 use bibe_emu::state::State;
 use bibe_emu::target::Target;
-use bibe_instr::{Instruction, Register};
+use bibe_instr::{Encode, Instruction, Register};
 use bibe_asm::parser::{ tokenize, parse };
 
 pub fn assemble(program: &str) -> Vec<Instruction> {
@@ -55,6 +55,19 @@ pub fn assemble(program: &str) -> Vec<Instruction> {
 
 			instructions.push(linked.unwrap());
 			addr += 4;
+		}
+	}
+
+	for (i, instr) in instructions.iter().enumerate() {
+		let encoded = instr.encode();
+		let decoded = Instruction::decode(encoded);
+
+		if decoded.is_none() {
+			panic!("Instruction #{i} failed to decode {encoded:08X} {instr:?}");
+		}
+
+		if &decoded.unwrap() != instr {
+			panic!("Instruction #{i} decoding/encoding is not idempotent");
 		}
 	}
 
