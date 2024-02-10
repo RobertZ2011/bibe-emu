@@ -15,7 +15,7 @@ loop:
 	b loop
 end:
 	mov %o0, %l1
-	csww 76, %z
+	swi
 ";
 
 #[test]
