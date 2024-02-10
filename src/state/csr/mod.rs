@@ -2,6 +2,7 @@ use bibe_instr::{
 	csr::Instruction,
 	Width
 };
+use bibe_instr::csr::regs::*;
 
 use crate::{
 	Result,
@@ -32,8 +33,6 @@ pub trait CsrBlock {
 	fn as_isr(&self) -> Option<&IsrBlock> { None }
 	fn as_isr_mut(&mut self) -> Option<&mut IsrBlock> { None }
 }
-
-pub const CSR_BLOCK_SIZE: u32 = 64;
 
 pub struct Register;
 

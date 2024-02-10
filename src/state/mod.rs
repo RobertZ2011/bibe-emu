@@ -12,6 +12,7 @@ use bibe_instr::{
 	ShiftKind,
 	Width, Condition,
 };
+use bibe_instr::csr::regs::*;
 
 use crate::{
 	memory::Memory, 
@@ -142,11 +143,11 @@ impl State {
 	}
 
 	pub fn read_psr(&self) -> u32 {
-		self.read_csr(csr::PSR_PSR0_REG, Width::Word).unwrap()
+		self.read_csr(PSR_PSR0_REG, Width::Word).unwrap()
 	}
 
 	pub fn write_psr(&mut self, value: u32) {
-		self.write_csr(csr::PSR_PSR0_REG, value, Width::Word).unwrap()
+		self.write_csr(PSR_PSR0_REG, value, Width::Word).unwrap()
 	}
 
 	pub fn read_csr(&self, reg: u32, width: Width) -> Option<u32> {
@@ -234,8 +235,8 @@ impl State {
 		let isr = csr_blocks[ISR_IDX].as_isr_mut().unwrap();
 		let mut tmp = [0u32; 31];
 
-		let isr_pc_idx = ((csr::ISR_PC_REG - csr::ISR_BASE) / 4) as usize;
-		let isr_r1_idx = ((csr::ISR_R1_REG - csr::ISR_BASE) / 4) as usize;
+		let isr_pc_idx = ((ISR_PC_REG - ISR_BASE) / 4) as usize;
+		let isr_r1_idx = ((ISR_R1_REG - ISR_BASE) / 4) as usize;
 
 		tmp.clone_from_slice(self.regs.borrow().as_slice());
 		self.regs.borrow_mut().clone_from_slice(&isr.0[isr_r1_idx..=isr_pc_idx]);
@@ -250,8 +251,8 @@ impl State {
 			if e.kind == InterruptKind::IsrExit {
 				self.swap_interrupt_banks();
 				
-				self.write_csr(csr::ISR_ERR1_REG, 0, Width::Word);
-				self.write_csr(csr::ISR_ERR2_REG, 0, Width::Word);
+				self.write_csr(ISR_ERR1_REG, 0, Width::Word);
+				self.write_csr(ISR_ERR2_REG, 0, Width::Word);
 
 				psr.set_exception_enabled(1);
 				psr.set_interrupt_mode(0);
@@ -272,7 +273,7 @@ impl State {
 					}
 				}
 
-				let handler = self.read_csr(csr::ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
+				let handler = self.read_csr(ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
 				self.write_reg(Register::pc(), handler);
 				debug!("Interrupt {:?} while already handling interrupt", e);
 				if index == 0 {
@@ -290,11 +291,11 @@ impl State {
 			psr.set_interrupt_mode(1);
 			self.write_psr(psr.0);
 
-			self.write_csr(csr::ISR_ERR1_REG, e.err1, Width::Word);
-			self.write_csr(csr::ISR_ERR2_REG, e.err2, Width::Word);
+			self.write_csr(ISR_ERR1_REG, e.err1, Width::Word);
+			self.write_csr(ISR_ERR2_REG, e.err2, Width::Word);
 
 			let index: u32 = e.kind.to_index().unwrap();
-			let handler = self.read_csr(csr::ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
+			let handler = self.read_csr(ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
 			self.write_reg(Register::pc(), handler);
 
 			debug!("Interrupt {:?} old_sp: {:08x}, old_pc: {:08x} sp: {:08x}, pc: {:08x}", e, old_sp, old_pc, self.read_sp(), self.read_pc());

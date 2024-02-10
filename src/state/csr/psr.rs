@@ -1,14 +1,10 @@
-use super::{ CSR_BLOCK_SIZE, CsrBlock };
+use super::CsrBlock;
 use crate::state::State;
 
 use bibe_instr::Width;
+use bibe_instr::csr::regs::*;
 
 pub struct PsrBlock(pub(crate) u32);
-
-pub const PSR_BASE: u32 = 0;
-pub const PSR_SIZE: u32 = CSR_BLOCK_SIZE;
-
-pub const PSR_PSR0_REG: u32 = 0;
 
 impl PsrBlock {
 	pub fn new() -> PsrBlock {
