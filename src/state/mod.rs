@@ -29,6 +29,7 @@ mod memory;
 mod csr;
 mod rrr;
 mod rri;
+mod jump;
 mod util;
 
 use csr::CsrBlock;
