@@ -1,7 +1,6 @@
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
 use super::CsrBlock;
-use crate::memory::Memory;
-use crate::state::State;
+use crate::state::CoreState;
 
 use bibe_instr::Width;
 use bibe_instr::csr::regs::*;
@@ -14,11 +13,9 @@ impl IsrBlock {
 	}
 }
 
-impl<M> CsrBlock<M> for IsrBlock
-where
-	M: Memory
+impl CsrBlock for IsrBlock
 {
-	fn read(&mut self, _state: &State<M>, reg: u32, width: Width) -> Option<u32> {
+	fn read(&mut self, _state: &CoreState, reg: u32, width: Width) -> Option<u32> {
 		if width != Width::Word {
 			return None;
 		}
@@ -26,7 +23,7 @@ where
 		Some(self.0[((reg - ISR_BASE) / 4) as usize])
 	}
 
-	fn write(&mut self, _state: &State<M>, reg: u32, width: Width, value: u32) -> Option<()> {
+	fn write(&mut self, _state: &CoreState, reg: u32, width: Width, value: u32) -> Option<()> {
 		if width != Width::Word {
 			return None;
 		}

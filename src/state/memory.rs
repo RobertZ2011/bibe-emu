@@ -22,16 +22,16 @@ fn execute_rr<M>(s: &mut State<M>, instr: &rr::Instruction) -> Result<()>
 where
 	M: MemTrait
 {
-	let rs = s.read_reg(instr.rs);
-	let rq = s.read_reg(instr.rq);
+	let rs = s.core.borrow().read_reg(instr.rs);
+	let rq = s.core.borrow().read_reg(instr.rq);
 	let addr = rs + shift(&instr.shift, rq);
 	match instr.op.op {
 		LoadStore::Load => {
 			let value = s.read(addr, instr.op.width)?;
-			s.write_reg(instr.rd, value);
+			s.core.borrow_mut().write_reg(instr.rd, value);
 		},
 		LoadStore::Store => {
-			let value = s.read_reg(instr.rd);
+			let value = s.core.borrow_mut().read_reg(instr.rd);
 			s.write(addr, instr.op.width, value)?;
 		},
 	}
@@ -42,15 +42,15 @@ fn execute_ri<M>(s: &mut State<M>, instr: &ri::Instruction) -> Result<()>
 where
 	M: MemTrait
 {
-	let rs = s.read_reg(instr.rs);
+	let rs = s.core.borrow().read_reg(instr.rs);
 	let addr = rs.wrapping_add(instr.imm as u32);
 	match instr.op.op {
 		LoadStore::Load => {
 			let value = s.read(addr, instr.op.width)?;
-			s.write_reg(instr.rd, value);
+			s.core.borrow_mut().write_reg(instr.rd, value);
 		},
 		LoadStore::Store => {
-			let value = s.read_reg(instr.rd);
+			let value = s.core.borrow().read_reg(instr.rd);
 			s.write(addr, instr.op.width, value)?;
 		}
 	}

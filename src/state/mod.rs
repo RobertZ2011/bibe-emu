@@ -66,16 +66,69 @@ impl Psr {
 	}
 }
 
+pub struct CoreState {
+	regs: [u32; 31],
+	pc_touched: bool,
+}
+
+impl CoreState {
+	pub fn new() -> CoreState {
+		CoreState {
+			regs: [0; 31],
+			pc_touched: false,
+		}
+	}
+
+	pub fn read_reg(&self, r: Register) -> u32 {
+		if r.as_u8() == 0 {
+			0
+		} else {
+			self.regs[r.as_u8() as usize - 1]
+		}
+	}
+
+	pub fn write_reg(&mut self, r: Register, value: u32) {
+		if r.as_u8() == PC as u8 {
+			self.pc_touched = true;
+		}
+
+		if r.as_u8() != 0 {
+			self.regs[r.as_u8() as usize - 1] = value
+		}
+	}
+
+	pub fn read_pc(&self) -> u32 {
+		self.read_reg(Register::pc())
+	}
+
+	pub fn write_pc(&mut self, value: u32) {
+		self.write_reg(Register::pc(), value)
+	}
+
+	pub fn read_sp(&self) -> u32 {
+		self.read_reg(Register::sp())
+	}
+
+	pub fn write_sp(&mut self, value: u32) {
+		self.write_reg(Register::sp(), value)
+	}
+
+	pub fn reset(&mut self) {
+		for reg in &mut self.regs {
+			*reg = 0;
+		}
+	}
+}
+
 pub struct State<M>
 where
 	M: Memory,
 {
-	regs: RefCell<[u32; 31]>,
+	pub core: RefCell<CoreState>,
 	memory: Option<M>,
 	target: Target,
-	pc_touched: bool,
 
-	csr_blocks: RefCell<Vec<Box<dyn CsrBlock<M>>>>,
+	csr_blocks: RefCell<Vec<Box<dyn CsrBlock>>>,
 
 	double_fault: bool,
 }
@@ -106,10 +159,9 @@ where
 {
 	pub fn new(memory: Option<M>, target: Target) -> State<M> {
 		State {
-			regs: RefCell::new([0u32; 31]),
+			core: RefCell::new(CoreState::new()),
 			memory,
 			target,
-			pc_touched: false,
 
 			csr_blocks: RefCell::new(vec![
 				Box::new(csr::PsrBlock::new()),
@@ -123,24 +175,6 @@ where
 
 	pub fn attach_memory(&mut self, memory: Option<M>) {
 		self.memory = memory
-	}
-
-	pub fn read_reg(&self, r: Register) -> u32 {
-		if r.as_u8() == 0 {
-			0
-		} else {
-			self.regs.borrow()[r.as_u8() as usize - 1]
-		}
-	}
-
-	pub fn write_reg(&mut self, r: Register, value: u32) {
-		if r.as_u8() == PC as u8 {
-			self.pc_touched = true;
-		}
-
-		if r.as_u8() != 0 {
-			self.regs.borrow_mut()[r.as_u8() as usize - 1] = value
-		}
 	}
 
 	pub fn read_psr(&self) -> u32 {
@@ -165,7 +199,7 @@ where
 		}
 
 		if found {
-			return self.csr_blocks.borrow_mut()[index].read(self, reg, width);
+			return self.csr_blocks.borrow_mut()[index].read(&self.core.borrow(), reg, width);
 		}
 
 		None
@@ -191,27 +225,11 @@ where
 
 		if found {
 			debug!("CSR block index {index}");
-			return self.csr_blocks.borrow_mut()[index].write(self, reg, width, value);
+			return self.csr_blocks.borrow_mut()[index].write(&self.core.borrow_mut(), reg, width, value);
 		}
 
 		debug!("Invalid CSR write");
 		None
-	}
-
-	pub fn read_pc(&self) -> u32 {
-		self.read_reg(Register::pc())
-	}
-
-	pub fn write_pc(&mut self, value: u32) {
-		self.write_reg(Register::pc(), value)
-	}
-
-	pub fn read_sp(&self) -> u32 {
-		self.read_reg(Register::sp())
-	}
-
-	pub fn write_sp(&mut self, value: u32) {
-		self.write_reg(Register::sp(), value)
 	}
 
 	pub fn target<'a>(&'a self) -> &'a Target {
@@ -219,19 +237,17 @@ where
 	}
 
 	pub fn reset(&mut self) {
-		debug!("Reset");
-		for reg in self.regs.borrow_mut().iter_mut() {
-			*reg = 0;
-		}
-
+		self.core.borrow_mut().reset();
 		for csr_block in self.csr_blocks.borrow_mut().iter_mut() {
 			csr_block.reset();
 		}
 
 		self.double_fault = false;
+		debug!("Reset");
 	}
 
 	fn swap_interrupt_banks(&mut self) {
+		let mut core = self.core.borrow_mut();
 		let mut csr_blocks = self.csr_blocks.borrow_mut();
 		let isr = csr_blocks[ISR_IDX].as_isr_mut().unwrap();
 		let mut tmp = [0u32; 31];
@@ -239,10 +255,10 @@ where
 		let isr_pc_idx = ((ISR_PC_REG - ISR_BASE) / 4) as usize;
 		let isr_r1_idx = ((ISR_R1_REG - ISR_BASE) / 4) as usize;
 
-		tmp.clone_from_slice(self.regs.borrow().as_slice());
-		self.regs.borrow_mut().clone_from_slice(&isr.0[isr_r1_idx..=isr_pc_idx]);
+		tmp.clone_from_slice(core.regs.as_slice());
+		core.regs.clone_from_slice(&isr.0[isr_r1_idx..=isr_pc_idx]);
 		isr.0[isr_r1_idx..=isr_pc_idx].clone_from_slice(&tmp);
-		self.pc_touched = true;
+		core.pc_touched = true;
 	}
 
 	pub fn handle_interrupt(&mut self, e: &Interrupt) {
@@ -259,7 +275,7 @@ where
 				psr.set_interrupt_mode(0);
 				self.write_psr(psr.0);
 
-				debug!("ISR exit sp: {:08x}, pc: {:08x}", self.read_sp(), self.read_pc());
+				debug!("ISR exit sp: {:08x}, pc: {:08x}", self.core.borrow().read_sp(), self.core.borrow().read_pc());
 			} else {
 				// Interrupt while handling an interrupt
 				// NMIs are always processed, trigger a double fault if we haven't already
@@ -275,7 +291,7 @@ where
 				}
 
 				let handler = self.read_csr(ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
-				self.write_reg(Register::pc(), handler);
+				self.core.borrow_mut().write_reg(Register::pc(), handler);
 				debug!("Interrupt {:?} while already handling interrupt", e);
 				if index == 0 {
 					self.reset();
@@ -283,8 +299,8 @@ where
 			}
 		}
 		else {
-			let old_sp = self.read_sp();
-			let old_pc = self.read_pc();
+			let old_sp = self.core.borrow().read_sp();
+			let old_pc = self.core.borrow().read_pc();
 
 			self.swap_interrupt_banks();
 
@@ -297,15 +313,15 @@ where
 
 			let index: u32 = e.kind.to_index().unwrap();
 			let handler = self.read_csr(ISR_BASE_REG, Width::Word).unwrap() + 4 * index;
-			self.write_reg(Register::pc(), handler);
+			self.core.borrow_mut().write_reg(Register::pc(), handler);
 
-			debug!("Interrupt {:?} old_sp: {:08x}, old_pc: {:08x} sp: {:08x}, pc: {:08x}", e, old_sp, old_pc, self.read_sp(), self.read_pc());
+			debug!("Interrupt {:?} old_sp: {:08x}, old_pc: {:08x} sp: {:08x}, pc: {:08x}", e, old_sp, old_pc, self.core.borrow().read_sp(), self.core.borrow().read_pc());
 		}
 	}
 
 	pub fn execute(&mut self, instr: &Instruction) -> Result<()>{
 		debug!("Executing {:08x} {:?}", instr.encode(), instr);
-		self.pc_touched = false;
+		self.core.borrow_mut().pc_touched = false;
 
 		let res = match instr {
 			Instruction::Rrr(i) => rrr::execute(self, i),
@@ -321,8 +337,9 @@ where
 		}
 
 		// If pc wasn't updated by a jump, advance to next instruction
-		if !self.pc_touched {
-			self.write_pc(self.read_pc() + 4);
+		if !self.core.borrow().pc_touched {
+			let new_pc = self.core.borrow().read_pc() + 4;
+			self.core.borrow_mut().write_pc(new_pc);
 		}
 
 		debug!("{}", self);
@@ -338,8 +355,9 @@ where
 	}
 
 	pub fn fetch(&self) -> Result<u32> {
-		debug!("Fetching instruction at {:08x}", self.read_pc());
-		let res = self.memory.as_ref().unwrap().read(self.read_pc(), Width::Word);
+		let core = self.core.borrow();
+		debug!("Fetching instruction at {:08x}", core.read_pc());
+		let res = self.memory.as_ref().unwrap().read(core.read_pc(), Width::Word);
 		if res.is_err() {
 			debug!("Failed to fetch instruction");
 		}
@@ -413,9 +431,10 @@ where
 	M: Memory
 {
 	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+		let core = self.core.borrow();
 		formatter.write_str("Core State\n")?;
 		for i in 0..32 {
-			write!(formatter, "\tr{}: 0x{:08x}\n", i, self.read_reg(Register::new(i).unwrap())).unwrap();
+			write!(formatter, "\tr{}: 0x{:08x}\n", i, core.read_reg(Register::new(i).unwrap())).unwrap();
 		}
 		write!(formatter, "\tpsr: 0x{:08x}\n", self.read_psr()).unwrap();
 		Ok(())

@@ -17,12 +17,12 @@ pub use dbg_out::*;
 pub use isr::*;
 pub use psr::*;
 
-pub trait CsrBlock<M>
-where
-	M: Memory
+use super::CoreState;
+
+pub trait CsrBlock
 {
-	fn read(&mut self, state: &State<M>, reg: u32, width: Width) -> Option<u32>;
-	fn write(&mut self, state: &State<M>, reg: u32, width: Width, value: u32) -> Option<()>;
+	fn read(&mut self, state: &CoreState, reg: u32, width: Width) -> Option<u32>;
+	fn write(&mut self, state: &CoreState, reg: u32, width: Width, value: u32) -> Option<()>;
 	fn reset(&mut self);
 
 	fn has_reg(&self, reg: u32) -> bool;
@@ -39,13 +39,14 @@ pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Resul
 
 	if  instr.op.is_load() {
 		let value = s.read_csr(instr.imm, width).unwrap();
-			s.write_reg(instr.reg, value);
+			s.core.borrow_mut().write_reg(instr.reg, value);
 	} else {
 		//TODO: remove this hack
 		if instr.imm == ISR_ENTER_REG {
 			return Err(Interrupt::swi());
 		}
-		s.write_csr(instr.imm, s.read_reg(instr.reg), width).unwrap();
+		let val = s.core.borrow().read_reg(instr.reg);
+		s.write_csr(instr.imm, val, width).unwrap();
 	}
 
 	Ok(())

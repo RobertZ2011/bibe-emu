@@ -13,7 +13,7 @@ use super::{
 };
 
 pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
-	let src = s.read_reg(instr.src);
+	let src = s.core.borrow().read_reg(instr.src);
 	let imm = (instr.imm as i32) as u32;
 	let psr = Psr(s.read_psr());
 
@@ -46,7 +46,7 @@ pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Resul
 		psr.set_zn(res);
 		s.write_psr(psr.0);
 	}
-	s.write_reg(instr.dest, res);
+	s.core.borrow_mut().write_reg(instr.dest, res);
 
 	Ok(())
 }

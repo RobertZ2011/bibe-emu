@@ -14,8 +14,8 @@ use super::{
 };
 
 pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
-	let rs = s.read_reg(instr.lhs);
-	let rq = shift(&instr.shift, s.read_reg(instr.rhs));
+	let rs = s.core.borrow().read_reg(instr.lhs);
+	let rq = shift(&instr.shift, s.core.borrow().read_reg(instr.rhs));
 
 	if !s.target().supports_binop(instr.op) {
 		return Err(Interrupt::opcode());
@@ -42,6 +42,6 @@ pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Resul
 		psr.set_zn(res);
 		s.write_psr(psr.0);
 	}
-	s.write_reg(instr.dest, res);
+	s.core.borrow_mut().write_reg(instr.dest, res);
 	Ok(())
 }

@@ -80,10 +80,10 @@ pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
 	let mut state: State<Mock> = State::new(None, Target::new());
 	let mut executed = 0;
 
-	state.write_reg(Register::a0(), a0);
+	state.core.borrow_mut().write_reg(Register::a0(), a0);
 
 	loop {
-		let pc = state.read_pc();
+		let pc = state.core.borrow().read_pc();
 		let i = (pc / 4) as usize;
 		let res = state.execute(&program[i]);
 
@@ -101,5 +101,7 @@ pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
 		executed += 1;
 	}
 
-	state.read_reg(Register::o0())
+	
+	let val = state.core.borrow().read_reg(Register::o0());
+	val
 }
