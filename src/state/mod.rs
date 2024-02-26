@@ -68,7 +68,7 @@ impl Psr {
 
 pub struct State<M>
 where
-	M: Memory
+	M: Memory,
 {
 	regs: RefCell<[u32; 31]>,
 	memory: Option<M>,
@@ -81,14 +81,6 @@ where
 }
 
 const PC: usize = 31;
-
-pub(self) trait Execute<M>
-where
-	M: Memory
-{
-	type I;
-	fn execute(s: &mut State<M>, i: &Self::I) -> Result<()>;
-}
 
 pub fn shift(s: &Shift, value: u32) -> u32 {
 	let Shift {
@@ -316,10 +308,11 @@ where
 		self.pc_touched = false;
 
 		let res = match instr {
-			Instruction::Rrr(i) => rrr::Rrr::execute(self, i),
-			Instruction::Rri(i) => rri::Rri::execute(self, i),
-			Instruction::Memory(i) => memory::Memory::execute(self, i),
-			Instruction::Csr(i) => csr::Register::execute(self, i),
+			Instruction::Rrr(i) => rrr::execute(self, i),
+			Instruction::Rri(i) => rri::execute(self, i),
+			Instruction::Memory(i) => memory::execute(self, i),
+			Instruction::Csr(i) => csr::execute(self, i),
+			Instruction::Jump(i) => jump::execute(self, i),
 			_ => panic!("Unsupported instruction type")
 		};
 

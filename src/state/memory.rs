@@ -14,7 +14,6 @@ use crate::{
 };
 
 use super::{
-	Execute,
 	State,
 	shift
 };
@@ -58,18 +57,9 @@ where
 	Ok(())
 }
 
-pub struct Memory;
-
-impl<M> Execute<M> for Memory
-where
-	M: MemTrait
-{
-	type I = Instruction;
-
-	fn execute(s: &mut State<M>, instr: &Self::I) -> Result<()> {
-		match instr {
-			Instruction::Rr(i) => execute_rr(s, i),
-			Instruction::Ri(i) => execute_ri(s, i),
-		}
+pub(super) fn execute<M: MemTrait>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
+	match instr {
+		Instruction::Rr(i) => execute_rr(s, i),
+		Instruction::Ri(i) => execute_ri(s, i),
 	}
 }

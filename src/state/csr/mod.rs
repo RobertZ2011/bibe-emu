@@ -1,16 +1,12 @@
-use bibe_instr::{
-	csr::Instruction,
-	Width
-};
+use bibe_instr::Width;
+use bibe_instr::csr::Instruction;
 use bibe_instr::csr::regs::*;
 
 use crate::memory::Memory;
 use crate::{
 	Result,
-	state::{
-		Execute,
-		State,
-	}, Interrupt,
+	state::State,
+	Interrupt,
 };
 
 mod dbg_out;
@@ -38,28 +34,19 @@ where
 	fn as_isr_mut(&mut self) -> Option<&mut IsrBlock> { None }
 }
 
-pub struct Register;
+pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
+	let width = instr.op.width;
 
-impl<M> Execute<M> for Register
-where
-	M: Memory
-{
-	type I = Instruction;
-
-	fn execute(s: &mut State<M>, instr: &Self::I) -> Result<()> {
-		let width = instr.op.width;
-
-		if  instr.op.is_load() {
-			let value = s.read_csr(instr.imm, width).unwrap();
-				s.write_reg(instr.reg, value);
-		} else {
-			//TODO: remove this hack
-			if instr.imm == ISR_ENTER_REG {
-				return Err(Interrupt::swi());
-			}
-			s.write_csr(instr.imm, s.read_reg(instr.reg), width).unwrap();
+	if  instr.op.is_load() {
+		let value = s.read_csr(instr.imm, width).unwrap();
+			s.write_reg(instr.reg, value);
+	} else {
+		//TODO: remove this hack
+		if instr.imm == ISR_ENTER_REG {
+			return Err(Interrupt::swi());
 		}
-	
-		Ok(())
+		s.write_csr(instr.imm, s.read_reg(instr.reg), width).unwrap();
 	}
+
+	Ok(())
 }
