@@ -1,4 +1,5 @@
 use super::CsrBlock;
+use crate::memory::Memory;
 use crate::state::State;
 
 use bibe_instr::Width;
@@ -12,7 +13,10 @@ impl PsrBlock {
 	}
 }
 
-impl CsrBlock for PsrBlock {
+impl<M> CsrBlock<M> for PsrBlock
+where
+	M: Memory
+{
     fn base_reg(&self) -> u32 {
 		PSR_BASE
 	}
@@ -25,7 +29,7 @@ impl CsrBlock for PsrBlock {
 		reg == PSR_PSR0_REG
 	}
 
-	fn read(&mut self, _state: &State, reg: u32, width: Width) -> Option<u32> {
+	fn read(&mut self, _state: &State<M>, reg: u32, width: Width) -> Option<u32> {
 		if width != Width::Word {
 			return None;
 		}
@@ -37,7 +41,7 @@ impl CsrBlock for PsrBlock {
 		None
 	}
 
-	fn write(&mut self, _state: &State, reg: u32, width: Width, value: u32) -> Option<()> {
+	fn write(&mut self, _state: &State<M>, reg: u32, width: Width, value: u32) -> Option<()> {
 		if width != Width::Word {
 			return None;
 		}

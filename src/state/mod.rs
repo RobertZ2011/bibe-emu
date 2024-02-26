@@ -1,7 +1,6 @@
 use std::{
 	cell::RefCell,
 	fmt,
-	sync::{ Arc, Mutex },
 };
 
 use bibe_instr::{
@@ -67,22 +66,28 @@ impl Psr {
 	}
 }
 
-pub struct State {
+pub struct State<M>
+where
+	M: Memory
+{
 	regs: RefCell<[u32; 31]>,
-	memory: Option<Arc<Mutex<dyn Memory>>>,
+	memory: Option<M>,
 	target: Target,
 	pc_touched: bool,
 
-	csr_blocks: RefCell<Vec<Box<dyn CsrBlock>>>,
+	csr_blocks: RefCell<Vec<Box<dyn CsrBlock<M>>>>,
 
 	double_fault: bool,
 }
 
 const PC: usize = 31;
 
-pub(self) trait Execute {
+pub(self) trait Execute<M>
+where
+	M: Memory
+{
 	type I;
-	fn execute(s: &mut State, i: &Self::I) -> Result<()>;
+	fn execute(s: &mut State<M>, i: &Self::I) -> Result<()>;
 }
 
 pub fn shift(s: &Shift, value: u32) -> u32 {
@@ -103,8 +108,11 @@ pub fn shift(s: &Shift, value: u32) -> u32 {
 
 const ISR_IDX: usize = 1;
 
-impl State {
-	pub fn new(memory: Option<Arc<Mutex<dyn Memory>>>, target: Target) -> State {
+impl<M> State<M>
+where
+	M: Memory
+{
+	pub fn new(memory: Option<M>, target: Target) -> State<M> {
 		State {
 			regs: RefCell::new([0u32; 31]),
 			memory,
@@ -121,7 +129,7 @@ impl State {
 		}
 	}
 
-	pub fn attach_memory(&mut self, memory: Option<Arc<Mutex<dyn Memory>>>) {
+	pub fn attach_memory(&mut self, memory: Option<M>) {
 		self.memory = memory
 	}
 
@@ -338,7 +346,7 @@ impl State {
 
 	pub fn fetch(&self) -> Result<u32> {
 		debug!("Fetching instruction at {:08x}", self.read_pc());
-		let res = self.memory.as_ref().unwrap().lock().unwrap().read(self.read_pc(), Width::Word);
+		let res = self.memory.as_ref().unwrap().read(self.read_pc(), Width::Word);
 		if res.is_err() {
 			debug!("Failed to fetch instruction");
 		}
@@ -378,13 +386,16 @@ impl State {
 	}
  }
 
-impl Memory for State {
+impl<M> Memory for State<M>
+where
+	M: Memory
+{
 	fn size(&self) -> u32 {
 		if self.memory.is_none() {
 			return 0;
 		}
 
-		self.memory.as_ref().unwrap().lock().unwrap().size()
+		self.memory.as_ref().unwrap().size()
 	}
 
 	fn read(&self, addr: u32, width: Width) -> Result<u32> {
@@ -392,7 +403,7 @@ impl Memory for State {
 			return Err(Interrupt::mem_fault(addr));
 		}
 
-		self.memory.as_ref().unwrap().lock().unwrap().read(addr, width)
+		self.memory.as_ref().unwrap().read(addr, width)
 	}
 
 	fn write(&mut self, addr: u32, width: Width, val: u32) -> Result<()> {
@@ -400,15 +411,18 @@ impl Memory for State {
 			return Err(Interrupt::mem_fault(addr));
 		}
 
-		self.memory.as_ref().unwrap().lock().unwrap().write(addr, width, val)
+		self.memory.as_mut().unwrap().write(addr, width, val)
 	}
 }
 
-impl fmt::Display for State {
+impl<M> fmt::Display for State<M>
+where
+	M: Memory
+{
 	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
 		formatter.write_str("Core State\n")?;
 		for i in 0..32 {
-			write!(formatter, "\tr{}: 0x{:08x}\n", i,self.read_reg(Register::new(i).unwrap())).unwrap();
+			write!(formatter, "\tr{}: 0x{:08x}\n", i, self.read_reg(Register::new(i).unwrap())).unwrap();
 		}
 		write!(formatter, "\tpsr: 0x{:08x}\n", self.read_psr()).unwrap();
 		Ok(())

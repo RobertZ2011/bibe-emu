@@ -19,7 +19,10 @@ use super::{
 	shift
 };
 
-fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {
+fn execute_rr<M>(s: &mut State<M>, instr: &rr::Instruction) -> Result<()>
+where
+	M: MemTrait
+{
 	let rs = s.read_reg(instr.rs);
 	let rq = s.read_reg(instr.rq);
 	let addr = rs + shift(&instr.shift, rq);
@@ -36,7 +39,10 @@ fn execute_rr(s: &mut State, instr: &rr::Instruction) -> Result<()> {
 	Ok(())
 }
 
-fn execute_ri(s: &mut State, instr: &ri::Instruction) -> Result<()> {
+fn execute_ri<M>(s: &mut State<M>, instr: &ri::Instruction) -> Result<()> 
+where
+	M: MemTrait
+{
 	let rs = s.read_reg(instr.rs);
 	let addr = rs.wrapping_add(instr.imm as u32);
 	match instr.op.op {
@@ -54,10 +60,13 @@ fn execute_ri(s: &mut State, instr: &ri::Instruction) -> Result<()> {
 
 pub struct Memory;
 
-impl Execute for Memory {
+impl<M> Execute<M> for Memory
+where
+	M: MemTrait
+{
 	type I = Instruction;
 
-	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
+	fn execute(s: &mut State<M>, instr: &Self::I) -> Result<()> {
 		match instr {
 			Instruction::Rr(i) => execute_rr(s, i),
 			Instruction::Ri(i) => execute_ri(s, i),

@@ -1,9 +1,7 @@
 use bibe_instr::rri::Instruction;
 
 use crate::{
-	Interrupt,
-	Result,
-	state::Psr,
+	memory::Memory, state::Psr, Interrupt, Result
 };
 use super::{
 	util::{
@@ -16,10 +14,12 @@ use super::{
 
 pub struct Rri;
 
-impl Execute for Rri {
+impl<M> Execute<M> for Rri
+where
+	M: Memory{
 	type I = Instruction;
 
-	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
+	fn execute(s: &mut State<M>, instr: &Self::I) -> Result<()> {
 		let src = s.read_reg(instr.src);
 		let imm = (instr.imm as i32) as u32;
 		let psr = Psr(s.read_psr());

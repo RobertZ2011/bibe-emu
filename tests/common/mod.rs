@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use bibe_asm::asm::emitter::link_instruction;
 use bibe_asm::asm::Directive;
-use bibe_emu::InterruptKind;
+use bibe_emu::{memory::Mock, InterruptKind};
 use bibe_emu::state::State;
 use bibe_emu::target::Target;
 use bibe_instr::{Encode, Instruction, Register};
@@ -77,7 +77,7 @@ pub fn assemble(program: &str) -> Vec<Instruction> {
 const EXECUTION_LIMIT: usize = 100_000;
 
 pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
-	let mut state = State::new(None, Target::new());
+	let mut state: State<Mock> = State::new(None, Target::new());
 	let mut executed = 0;
 
 	state.write_reg(Register::a0(), a0);

@@ -4,6 +4,7 @@ use bibe_instr::{
 };
 use bibe_instr::csr::regs::*;
 
+use crate::memory::Memory;
 use crate::{
 	Result,
 	state::{
@@ -20,9 +21,12 @@ pub use dbg_out::*;
 pub use isr::*;
 pub use psr::*;
 
-pub trait CsrBlock {
-	fn read(&mut self, state: &State, reg: u32, width: Width) -> Option<u32>;
-	fn write(&mut self, state: &State, reg: u32, width: Width, value: u32) -> Option<()>;
+pub trait CsrBlock<M>
+where
+	M: Memory
+{
+	fn read(&mut self, state: &State<M>, reg: u32, width: Width) -> Option<u32>;
+	fn write(&mut self, state: &State<M>, reg: u32, width: Width, value: u32) -> Option<()>;
 	fn reset(&mut self);
 
 	fn has_reg(&self, reg: u32) -> bool;
@@ -36,10 +40,13 @@ pub trait CsrBlock {
 
 pub struct Register;
 
-impl Execute for Register {
+impl<M> Execute<M> for Register
+where
+	M: Memory
+{
 	type I = Instruction;
 
-	fn execute(s: &mut State, instr: &Self::I) -> Result<()> {
+	fn execute(s: &mut State<M>, instr: &Self::I) -> Result<()> {
 		let width = instr.op.width;
 
 		if  instr.op.is_load() {
