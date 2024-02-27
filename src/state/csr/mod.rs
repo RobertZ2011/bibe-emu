@@ -34,7 +34,46 @@ pub trait CsrBlock
 	fn as_isr_mut(&mut self) -> Option<&mut IsrBlock> { None }
 }
 
-pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
+pub trait CsrCollection
+{
+	fn len(&self) -> usize;
+
+	fn index(&self, i: usize) -> &dyn CsrBlock;
+	fn index_mut(&mut self, i: usize) -> &mut dyn CsrBlock;
+
+	fn get_isr(&self) -> &IsrBlock;
+	fn get_isr_mut(&mut self) -> &mut IsrBlock;
+}
+
+const ISR_IDX: usize = 1;
+
+impl CsrCollection for Vec<Box<dyn CsrBlock>> {
+	fn len(&self) -> usize {
+		self.len()
+	}
+
+	fn index(&self, i: usize) -> &dyn CsrBlock {
+		self[i].as_ref()
+	}
+
+	fn index_mut(&mut self, i: usize) -> &mut dyn CsrBlock {
+		self[i].as_mut()
+	}
+
+	fn get_isr(&self) -> &IsrBlock {
+		self[ISR_IDX].as_ref().as_isr().unwrap()
+	}
+
+	fn get_isr_mut(&mut self) -> &mut IsrBlock {
+		self[ISR_IDX].as_mut().as_isr_mut().unwrap()
+	}
+}
+
+pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+where
+	M: Memory,
+	C: CsrCollection,
+{
 	let width = instr.op.width;
 
 	if  instr.op.is_load() {

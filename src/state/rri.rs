@@ -4,15 +4,16 @@ use crate::{
 	memory::Memory, state::Psr, Interrupt, Result
 };
 use super::{
-	util::{
-		BinOpOverflow,
-		check_binop,
-		execute_binop
-	},
-	State
+	csr::CsrCollection, util::{
+		check_binop, execute_binop, BinOpOverflow
+	}, State
 };
 
-pub(super) fn execute<M: Memory>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
+pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+where
+	M: Memory,
+	C: CsrCollection,
+{
 	let src = s.core.borrow().read_reg(instr.src);
 	let imm = (instr.imm as i32) as u32;
 	let psr = Psr(s.read_psr());

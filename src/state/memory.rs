@@ -14,13 +14,13 @@ use crate::{
 };
 
 use super::{
-	State,
-	shift
+	csr::CsrCollection, shift, State
 };
 
-fn execute_rr<M>(s: &mut State<M>, instr: &rr::Instruction) -> Result<()>
+fn execute_rr<M, C>(s: &mut State<M, C>, instr: &rr::Instruction) -> Result<()>
 where
-	M: MemTrait
+	M: MemTrait,
+	C: CsrCollection,
 {
 	let rs = s.core.borrow().read_reg(instr.rs);
 	let rq = s.core.borrow().read_reg(instr.rq);
@@ -38,9 +38,10 @@ where
 	Ok(())
 }
 
-fn execute_ri<M>(s: &mut State<M>, instr: &ri::Instruction) -> Result<()> 
+fn execute_ri<M, C>(s: &mut State<M, C>, instr: &ri::Instruction) -> Result<()> 
 where
-	M: MemTrait
+	M: MemTrait,
+	C: CsrCollection,
 {
 	let rs = s.core.borrow().read_reg(instr.rs);
 	let addr = rs.wrapping_add(instr.imm as u32);
@@ -57,7 +58,11 @@ where
 	Ok(())
 }
 
-pub(super) fn execute<M: MemTrait>(s: &mut State<M>, instr: &Instruction) -> Result<()> {
+pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+where
+	M: MemTrait,
+	C: CsrCollection,
+{
 	match instr {
 		Instruction::Rr(i) => execute_rr(s, i),
 		Instruction::Ri(i) => execute_ri(s, i),

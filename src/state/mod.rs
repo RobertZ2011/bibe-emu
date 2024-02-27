@@ -25,13 +25,13 @@ use bitfield::bitfield;
 use log::debug;
 
 mod memory;
-mod csr;
+pub mod csr;
 mod rrr;
 mod rri;
 mod jump;
 mod util;
 
-use csr::CsrBlock;
+use self::csr::CsrCollection;
 
 bitfield! {
 	pub struct Psr(u32);
@@ -120,15 +120,16 @@ impl CoreState {
 	}
 }
 
-pub struct State<M>
+pub struct State<M, C>
 where
 	M: Memory,
+	C: CsrCollection,
 {
 	pub core: RefCell<CoreState>,
 	memory: Option<M>,
 	target: Target,
 
-	csr_blocks: RefCell<Vec<Box<dyn CsrBlock>>>,
+	csr_blocks: RefCell<C>,
 
 	double_fault: bool,
 }
@@ -151,24 +152,17 @@ pub fn shift(s: &Shift, value: u32) -> u32 {
 	}
 }
 
-const ISR_IDX: usize = 1;
-
-impl<M> State<M>
+impl<M, C> State<M, C>
 where
-	M: Memory
+	M: Memory,
+	C: CsrCollection,
 {
-	pub fn new(memory: Option<M>, target: Target) -> State<M> {
+	pub fn new(target: Target, memory: Option<M>, csr_blocks: C) -> State<M, C> {
 		State {
 			core: RefCell::new(CoreState::new()),
 			memory,
 			target,
-
-			csr_blocks: RefCell::new(vec![
-				Box::new(csr::PsrBlock::new()),
-				Box::new(csr::IsrBlock::new()),
-				Box::new(csr::DbgOutBlock::new()),
-			]),
-
+			csr_blocks: RefCell::new(csr_blocks),
 			double_fault: false,
 		}
 	}
@@ -188,8 +182,10 @@ where
 	pub fn read_csr(&self, reg: u32, width: Width) -> Option<u32> {
 		let mut index = 0;
 		let mut found = false;
+		let mut blocks = self.csr_blocks.borrow_mut();
 
-		for block in self.csr_blocks.borrow_mut().iter_mut() {
+		for i in 0..blocks.len() {
+			let block = blocks.index(i);
 			if reg >= block.base_reg() && reg < block.base_reg() + block.size() {
 				found = true;
 				break;
@@ -199,7 +195,7 @@ where
 		}
 
 		if found {
-			return self.csr_blocks.borrow_mut()[index].read(&self.core.borrow(), reg, width);
+			return blocks.index_mut(index).read(&self.core.borrow(), reg, width);
 		}
 
 		None
@@ -208,9 +204,11 @@ where
 	pub fn write_csr(&mut self, reg: u32, value: u32, width: Width) -> Option<()> {
 		let mut index = 0;
 		let mut found = false;
+		let mut blocks = self.csr_blocks.borrow_mut();
 
 		debug!("CSR write: reg: {reg:#x}, value: {value:#x}, width: {width:?}");
-		for block in self.csr_blocks.borrow().iter() {
+		for i in 0..blocks.len() {
+			let block = blocks.index(i);
 			let base = block.base_reg();
 			let max = block.base_reg() + block.size();
 
@@ -225,7 +223,7 @@ where
 
 		if found {
 			debug!("CSR block index {index}");
-			return self.csr_blocks.borrow_mut()[index].write(&self.core.borrow_mut(), reg, width, value);
+			return blocks.index_mut(index).write(&self.core.borrow_mut(), reg, width, value);
 		}
 
 		debug!("Invalid CSR write");
@@ -238,8 +236,8 @@ where
 
 	pub fn reset(&mut self) {
 		self.core.borrow_mut().reset();
-		for csr_block in self.csr_blocks.borrow_mut().iter_mut() {
-			csr_block.reset();
+		for i in 0..self.csr_blocks.borrow().len() {
+			self.csr_blocks.borrow_mut().index_mut(i).reset();
 		}
 
 		self.double_fault = false;
@@ -249,7 +247,7 @@ where
 	fn swap_interrupt_banks(&mut self) {
 		let mut core = self.core.borrow_mut();
 		let mut csr_blocks = self.csr_blocks.borrow_mut();
-		let isr = csr_blocks[ISR_IDX].as_isr_mut().unwrap();
+		let isr = csr_blocks.get_isr_mut();
 		let mut tmp = [0u32; 31];
 
 		let isr_pc_idx = ((ISR_PC_REG - ISR_BASE) / 4) as usize;
@@ -397,9 +395,10 @@ where
 	}
  }
 
-impl<M> Memory for State<M>
+impl<M, C> Memory for State<M, C>
 where
-	M: Memory
+	M: Memory,
+	C: CsrCollection,
 {
 	fn size(&self) -> u32 {
 		if self.memory.is_none() {
@@ -426,9 +425,10 @@ where
 	}
 }
 
-impl<M> fmt::Display for State<M>
+impl<M, C> fmt::Display for State<M, C>
 where
-	M: Memory
+	M: Memory,
+	C: CsrCollection,
 {
 	fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
 		let core = self.core.borrow();
