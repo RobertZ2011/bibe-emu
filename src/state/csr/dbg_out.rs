@@ -1,3 +1,7 @@
+#![cfg(feature = "std")]
+extern crate std;
+use std::print;
+
 use super::CsrBlock;
 use crate::state::CoreState;
 

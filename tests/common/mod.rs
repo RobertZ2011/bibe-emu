@@ -1,3 +1,6 @@
+#![cfg(feature = "std")]
+extern crate std;
+
 use std::collections::HashMap;
 
 use bibe_asm::asm::emitter::link_instruction;

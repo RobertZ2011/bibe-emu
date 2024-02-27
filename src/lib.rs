@@ -1,4 +1,5 @@
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
+#![no_std]
 pub mod memory;
 pub mod state;
 pub mod target;
@@ -74,4 +75,4 @@ impl Interrupt {
 	}
 }
 
-pub type Result<T> = std::result::Result<T, Interrupt>;
+pub type Result<T> = core::result::Result<T, Interrupt>;

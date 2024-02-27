@@ -10,8 +10,10 @@ pub trait Target {
 	fn has_extension(&self, extension: Extension) -> bool;
 }
 
+#[cfg(feature = "std")]
 mod std {
-	use ::std::collections::HashSet;
+	extern crate std;
+	use std::collections::HashSet;
 	use super::*;
 
 	#[derive(Clone, Debug)]
@@ -73,9 +75,11 @@ mod std {
 	}
 }
 
+#[cfg(feature = "std")]
 pub use self::std::StdTarget;
 
 #[cfg(test)]
+#[cfg(feature = "std")]
 mod test {
 	use super::*;
 

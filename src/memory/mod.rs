@@ -6,15 +6,21 @@ use crate::{
 
 use bibe_instr::Width;
 
+#[cfg(feature = "std")]
 mod image;
+#[cfg(feature = "std")]
 mod mapped;
-mod mock;
+#[cfg(feature = "std")]
 mod simple_image;
+mod mock;
 
+#[cfg(feature = "std")]
 pub use image::Image;
+#[cfg(feature = "std")]
 pub use mapped::Mapped;
-pub use mock::Mock;
+#[cfg(feature = "std")]
 pub use simple_image::SimpleImage;
+pub use mock::Mock;
 
 pub struct RegionSlice<'a> {
 	parent: &'a mut dyn Memory,

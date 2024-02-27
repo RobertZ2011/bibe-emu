@@ -1,3 +1,8 @@
+/* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
+#![cfg(feature = "std")]
+extern crate std;
+use std::vec::Vec;
+use std::boxed::Box;
 use bibe_instr::Width;
 
 use super::Memory;

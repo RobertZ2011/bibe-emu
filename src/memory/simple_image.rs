@@ -1,9 +1,14 @@
 /* Copyright 2023 Robert Zieba, see LICENSE file for full license. */
+#![cfg(feature = "std")]
 use bibe_instr::Width;
 
 use crate::Result;
 
+extern crate std;
+
 use std::io;
+use std::vec::Vec;
+use std::vec;
 
 use super::Memory;
 

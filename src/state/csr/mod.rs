@@ -10,6 +10,15 @@ use crate::{
 	Interrupt,
 };
 
+#[cfg(feature = "std")]
+extern crate std;
+
+#[cfg(feature = "std")]
+use std::{
+	vec::Vec,
+	boxed::Box,
+};
+
 mod dbg_out;
 mod isr;
 mod psr;
@@ -46,8 +55,10 @@ pub trait CsrCollection
 	fn get_isr_mut(&mut self) -> &mut IsrBlock;
 }
 
+#[cfg(feature = "std")]
 const ISR_IDX: usize = 1;
 
+#[cfg(feature = "std")]
 impl CsrCollection for Vec<Box<dyn CsrBlock>> {
 	fn len(&self) -> usize {
 		self.len()

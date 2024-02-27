@@ -1,9 +1,10 @@
+/* Copyright 2024 Robert Zieba, see LICENSE file for full license. */
 use bibe_instr::Width;
 
 use crate::Result;
 use super::Memory;
 
-use std::cell::Cell;
+use core::cell::Cell;
 
 /// Mock memory implementation for testing
 pub struct Mock {
