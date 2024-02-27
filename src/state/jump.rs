@@ -1,10 +1,11 @@
-use crate::memory::Memory;
+use crate::{memory::Memory, target::Target};
 use bibe_instr::jump::Instruction;
 
 use super::csr::CsrCollection;
 
-pub(super) fn execute<M, C>(s: &mut super::State<M, C>, i: &Instruction) -> crate::Result<()>
+pub(super) fn execute<T, M, C>(s: &mut super::State<T, M, C>, i: &Instruction) -> crate::Result<()>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {

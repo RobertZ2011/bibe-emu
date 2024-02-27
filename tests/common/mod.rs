@@ -5,7 +5,7 @@ use bibe_asm::asm::Directive;
 use bibe_emu::state::csr::*;
 use bibe_emu::{memory::Mock, InterruptKind};
 use bibe_emu::state::State;
-use bibe_emu::target::Target;
+use bibe_emu::target::StdTarget;
 use bibe_instr::{Encode, Instruction, Register};
 use bibe_asm::parser::{ tokenize, parse };
 
@@ -78,7 +78,7 @@ pub fn assemble(program: &str) -> Vec<Instruction> {
 const EXECUTION_LIMIT: usize = 100_000;
 
 pub fn run(program: &Vec<Instruction>, a0: u32) -> u32 {
-	let mut state: State<Mock, Vec<Box<dyn CsrBlock>>> = State::new(Target::new(), None, vec![
+	let mut state: State<_, Mock, Vec<Box<dyn CsrBlock>>> = State::new(StdTarget::new(), None, vec![
 		Box::new(PsrBlock::new()),
 		Box::new(IsrBlock::new()),
 	]);

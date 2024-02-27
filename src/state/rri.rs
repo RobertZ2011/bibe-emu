@@ -1,7 +1,7 @@
 use bibe_instr::rri::Instruction;
 
 use crate::{
-	memory::Memory, state::Psr, Interrupt, Result
+	memory::Memory, state::Psr, target::Target, Interrupt, Result
 };
 use super::{
 	csr::CsrCollection, util::{
@@ -9,8 +9,9 @@ use super::{
 	}, State
 };
 
-pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+pub(super) fn execute<T, M, C>(s: &mut State<T, M, C>, instr: &Instruction) -> Result<()>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {

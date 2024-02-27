@@ -3,6 +3,7 @@ use bibe_instr::csr::Instruction;
 use bibe_instr::csr::regs::*;
 
 use crate::memory::Memory;
+use crate::target::Target;
 use crate::{
 	Result,
 	state::State,
@@ -69,8 +70,9 @@ impl CsrCollection for Vec<Box<dyn CsrBlock>> {
 	}
 }
 
-pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+pub(super) fn execute<T, M, C>(s: &mut State<T, M, C>, instr: &Instruction) -> Result<()>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {

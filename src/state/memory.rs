@@ -9,16 +9,16 @@ use bibe_instr::{
 };
 
 use crate::{
-	memory::Memory as MemTrait,
-	Result,
+	memory::Memory as MemTrait, target::Target, Result
 };
 
 use super::{
 	csr::CsrCollection, shift, State
 };
 
-fn execute_rr<M, C>(s: &mut State<M, C>, instr: &rr::Instruction) -> Result<()>
+fn execute_rr<T, M, C>(s: &mut State<T, M, C>, instr: &rr::Instruction) -> Result<()>
 where
+	T: Target, 
 	M: MemTrait,
 	C: CsrCollection,
 {
@@ -38,8 +38,9 @@ where
 	Ok(())
 }
 
-fn execute_ri<M, C>(s: &mut State<M, C>, instr: &ri::Instruction) -> Result<()> 
+fn execute_ri<T, M, C>(s: &mut State<T, M, C>, instr: &ri::Instruction) -> Result<()> 
 where
+	T: Target,
 	M: MemTrait,
 	C: CsrCollection,
 {
@@ -58,8 +59,9 @@ where
 	Ok(())
 }
 
-pub(super) fn execute<M, C>(s: &mut State<M, C>, instr: &Instruction) -> Result<()>
+pub(super) fn execute<T, M, C>(s: &mut State<T, M, C>, instr: &Instruction) -> Result<()>
 where
+	T: Target,
 	M: MemTrait,
 	C: CsrCollection,
 {

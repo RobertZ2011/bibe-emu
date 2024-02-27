@@ -120,14 +120,15 @@ impl CoreState {
 	}
 }
 
-pub struct State<M, C>
+pub struct State<T, M, C>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {
 	pub core: RefCell<CoreState>,
 	memory: Option<M>,
-	target: Target,
+	target: T,
 
 	csr_blocks: RefCell<C>,
 
@@ -152,12 +153,13 @@ pub fn shift(s: &Shift, value: u32) -> u32 {
 	}
 }
 
-impl<M, C> State<M, C>
+impl<T, M, C> State<T, M, C>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {
-	pub fn new(target: Target, memory: Option<M>, csr_blocks: C) -> State<M, C> {
+	pub fn new(target: T, memory: Option<M>, csr_blocks: C) -> State<T, M, C> {
 		State {
 			core: RefCell::new(CoreState::new()),
 			memory,
@@ -230,7 +232,7 @@ where
 		None
 	}
 
-	pub fn target<'a>(&'a self) -> &'a Target {
+	pub fn target<'a>(&'a self) -> &'a T {
 		&self.target
 	}
 
@@ -395,8 +397,9 @@ where
 	}
  }
 
-impl<M, C> Memory for State<M, C>
+impl<T, M, C> Memory for State<T, M, C>
 where
+ 	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {
@@ -425,8 +428,9 @@ where
 	}
 }
 
-impl<M, C> fmt::Display for State<M, C>
+impl<T,M, C> fmt::Display for State<T, M, C>
 where
+	T: Target,
 	M: Memory,
 	C: CsrCollection,
 {
